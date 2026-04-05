@@ -485,15 +485,39 @@ final class PromptStore: ObservableObject {
             }
 
         case .merge:
-            var categoryMap = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+            var mergedCategories = categories
+            var importedCategoryIDMap: [UUID: UUID] = [:]
+
             for category in snapshot.categories {
-                categoryMap[category.id] = category
+                if let existingCategory = mergedCategories.first(where: { $0.id == category.id }) {
+                    if let existingIndex = mergedCategories.firstIndex(where: { $0.id == existingCategory.id }) {
+                        mergedCategories[existingIndex] = category
+                    }
+                    importedCategoryIDMap[category.id] = category.id
+                    continue
+                }
+
+                if let sameNamedCategory = mergedCategories.first(where: {
+                    $0.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        .localizedCaseInsensitiveCompare(category.name.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
+                }) {
+                    importedCategoryIDMap[category.id] = sameNamedCategory.id
+                    continue
+                }
+
+                mergedCategories.append(category)
+                importedCategoryIDMap[category.id] = category.id
             }
-            categories = Array(categoryMap.values).sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
+
+            categories = mergedCategories.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
 
             var promptMap = Dictionary(uniqueKeysWithValues: prompts.map { ($0.id, $0) })
             for prompt in snapshot.prompts {
-                promptMap[prompt.id] = prompt
+                var mergedPrompt = prompt
+                if let mappedCategoryID = importedCategoryIDMap[prompt.categoryID] {
+                    mergedPrompt.categoryID = mappedCategoryID
+                }
+                promptMap[prompt.id] = mergedPrompt
             }
             prompts = Array(promptMap.values).sorted { $0.updatedAt > $1.updatedAt }
 
