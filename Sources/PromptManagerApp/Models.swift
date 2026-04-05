@@ -8,6 +8,11 @@ private struct PromptStoreSnapshot: Codable {
     var selectedVersionID: UUID?
 }
 
+enum PromptImportMode {
+    case replace
+    case merge
+}
+
 struct PromptCategory: Identifiable, Hashable, Codable {
     var id: UUID
     var name: String
@@ -357,6 +362,23 @@ final class PromptStore: ObservableObject {
         persist()
     }
 
+    func exportData(to url: URL) throws {
+        let snapshot = PromptStoreSnapshot(
+            categories: categories,
+            prompts: prompts,
+            selectedPromptID: selectedPromptID,
+            selectedVersionID: selectedVersionID
+        )
+        let data = try JSONEncoder.promptStoreEncoder.encode(snapshot)
+        try data.write(to: url, options: .atomic)
+    }
+
+    func importData(from url: URL, mode: PromptImportMode) throws {
+        let data = try Data(contentsOf: url)
+        let snapshot = try JSONDecoder.promptStoreDecoder.decode(PromptStoreSnapshot.self, from: data)
+        applyImport(snapshot, mode: mode)
+    }
+
     func versionLayout(for prompt: PromptDocument) -> VersionGraphLayout {
         let sorted = prompt.versions.sorted {
             if $0.depth == $1.depth { return $0.createdAt < $1.createdAt }
@@ -385,6 +407,52 @@ final class PromptStore: ObservableObject {
 
     private func sortPrompts() {
         prompts.sort { $0.updatedAt > $1.updatedAt }
+    }
+
+    private func applyImport(_ snapshot: PromptStoreSnapshot, mode: PromptImportMode) {
+        switch mode {
+        case .replace:
+            categories = snapshot.categories
+            prompts = snapshot.prompts.sorted { $0.updatedAt > $1.updatedAt }
+            selectedPromptID = snapshot.selectedPromptID ?? prompts.first?.id
+            if let selectedPromptID,
+               let prompt = prompts.first(where: { $0.id == selectedPromptID }) {
+                selectedVersionID = snapshot.selectedVersionID ?? prompt.currentVersionID
+            } else {
+                selectedVersionID = prompts.first?.currentVersionID
+            }
+
+        case .merge:
+            var categoryMap = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+            for category in snapshot.categories {
+                categoryMap[category.id] = category
+            }
+            categories = Array(categoryMap.values).sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
+
+            var promptMap = Dictionary(uniqueKeysWithValues: prompts.map { ($0.id, $0) })
+            for prompt in snapshot.prompts {
+                promptMap[prompt.id] = prompt
+            }
+            prompts = Array(promptMap.values).sorted { $0.updatedAt > $1.updatedAt }
+
+            if let importedPromptID = snapshot.selectedPromptID,
+               prompts.contains(where: { $0.id == importedPromptID }) {
+                selectedPromptID = importedPromptID
+                if let prompt = prompts.first(where: { $0.id == importedPromptID }) {
+                    selectedVersionID = snapshot.selectedVersionID ?? prompt.currentVersionID
+                }
+            } else if let currentSelectedPromptID = selectedPromptID,
+                      prompts.contains(where: { $0.id == currentSelectedPromptID }) {
+                if let prompt = prompts.first(where: { $0.id == currentSelectedPromptID }) {
+                    selectedVersionID = prompt.currentVersionID
+                }
+            } else {
+                selectedPromptID = prompts.first?.id
+                selectedVersionID = prompts.first?.currentVersionID
+            }
+        }
+
+        persist()
     }
 
     private func persist() {

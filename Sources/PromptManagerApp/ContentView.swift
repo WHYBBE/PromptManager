@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ContentView: View {
@@ -22,11 +23,28 @@ private struct PromptSidebar: View {
     @State private var draftContent = ""
     @State private var draftEffect = ""
     @State private var selectedCategoryID: UUID?
+    @State private var pendingImportURL: URL?
+    @State private var importErrorMessage: String?
+    @State private var exportErrorMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("提示词")
-                .font(.title2.weight(.semibold))
+            HStack() {
+                Text("提示词")
+                    .font(.title2.weight(.semibold))
+                Spacer()
+                HStack {
+                    Button("导出") {
+                        exportAllData()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("导入") {
+                        chooseImportFile()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
 
             List(selection: Binding(
                 get: { store.selectedPromptID },
@@ -98,6 +116,86 @@ private struct PromptSidebar: View {
         .padding(20)
         .onAppear {
             selectedCategoryID = store.categories.first?.id
+        }
+        .confirmationDialog(
+            "导入数据",
+            isPresented: Binding(
+                get: { pendingImportURL != nil },
+                set: { if !$0 { pendingImportURL = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("覆盖当前数据", role: .destructive) {
+                performImport(mode: .replace)
+            }
+            Button("合并到当前数据") {
+                performImport(mode: .merge)
+            }
+            Button("取消", role: .cancel) {
+                pendingImportURL = nil
+            }
+        } message: {
+            Text("导入文件后，你可以选择覆盖当前数据，或把导入内容合并到当前数据中。")
+        }
+        .alert(
+            "导入失败",
+            isPresented: Binding(
+                get: { importErrorMessage != nil },
+                set: { if !$0 { importErrorMessage = nil } }
+            )
+        ) {
+            Button("知道了", role: .cancel) {}
+        } message: {
+            Text(importErrorMessage ?? "")
+        }
+        .alert(
+            "导出失败",
+            isPresented: Binding(
+                get: { exportErrorMessage != nil },
+                set: { if !$0 { exportErrorMessage = nil } }
+            )
+        ) {
+            Button("知道了", role: .cancel) {}
+        } message: {
+            Text(exportErrorMessage ?? "")
+        }
+    }
+
+    private func exportAllData() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "prompt-manager-export.json"
+        panel.canCreateDirectories = true
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            try store.exportData(to: url)
+        } catch {
+            exportErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func chooseImportFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        pendingImportURL = url
+    }
+
+    private func performImport(mode: PromptImportMode) {
+        guard let url = pendingImportURL else { return }
+        do {
+            try store.importData(from: url, mode: mode)
+            pendingImportURL = nil
+            selectedCategoryID = store.categories.first?.id
+        } catch {
+            pendingImportURL = nil
+            importErrorMessage = error.localizedDescription
         }
     }
 }
