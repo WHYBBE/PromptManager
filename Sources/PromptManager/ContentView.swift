@@ -343,10 +343,19 @@ private struct PromptWorkspace: View {
 
             HStack {
                 TextField("类型名称", text: $draftCategoryName)
-                TextField("颜色 Hex", text: $draftCategoryColor)
+                ColorPicker(
+                    "颜色",
+                    selection: Binding(
+                        get: { Color(hex: draftCategoryColor) },
+                        set: { draftCategoryColor = $0.hexString ?? draftCategoryColor }
+                    ),
+                    supportsOpacity: false
+                )
+                .labelsHidden()
                 Button("添加类型") {
                     store.addCategory(name: draftCategoryName, colorHex: draftCategoryColor)
                     draftCategoryName = ""
+                    draftCategoryColor = "F97316"
                 }
                 .buttonStyle(.bordered)
                 .disabled(draftCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -446,11 +455,19 @@ private struct PromptWorkspace: View {
                 set: { draft.wrappedValue.name = $0 }
             ))
 
-            TextField("颜色 Hex", text: Binding(
-                get: { draft.wrappedValue.colorHex },
-                set: { draft.wrappedValue.colorHex = $0 }
-            ))
-            .frame(width: 110)
+            ColorPicker(
+                "颜色",
+                selection: Binding(
+                    get: { Color(hex: draft.wrappedValue.colorHex) },
+                    set: { color in
+                        if let hex = color.hexString {
+                            draft.wrappedValue.colorHex = hex
+                        }
+                    }
+                ),
+                supportsOpacity: false
+            )
+            .labelsHidden()
 
             Button("保存") {
                 store.updateCategory(id: category.id, name: draft.wrappedValue.name, colorHex: draft.wrappedValue.colorHex)

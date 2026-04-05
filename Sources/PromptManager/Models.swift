@@ -661,6 +661,14 @@ extension Color {
         })
     }
 
+    var hexString: String? {
+        guard let color = NSColor(self).usingColorSpace(.sRGB) else { return nil }
+        let red = Int(round(color.redComponent * 255))
+        let green = Int(round(color.greenComponent * 255))
+        let blue = Int(round(color.blueComponent * 255))
+        return String(format: "%02X%02X%02X", red, green, blue)
+    }
+
     init(hex: String) {
         let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
