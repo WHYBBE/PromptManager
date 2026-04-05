@@ -27,8 +27,14 @@ private struct PromptSidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack() {
-                Text("Prompt Manager")
-                    .font(.title2.weight(.semibold))
+                Label {
+                    Text("Prompt Manager")
+                        .font(.title2.weight(.semibold))
+                } icon: {
+                    Image(systemName: "info.circle.text.page.fill")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                }
                 Spacer()
                 Menu {
                     ForEach(AppThemeMode.allCases) { mode in
