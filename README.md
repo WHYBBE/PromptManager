@@ -115,4 +115,4 @@ PromptManager/Assets.xcassets/AppIcon.appiconset/
 
 ## License
 
-No license file is included yet.
+This project is licensed under the MIT License. See [`LICENSE`](./LICENSE).

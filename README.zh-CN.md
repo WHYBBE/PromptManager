@@ -115,4 +115,4 @@ PromptManager/Assets.xcassets/AppIcon.appiconset/
 
 ## License
 
-当前仓库还没有附带许可证文件。
+本项目基于 MIT License 开源。详见 [`LICENSE`](./LICENSE)。
