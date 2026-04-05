@@ -71,6 +71,12 @@ private struct PromptSidebar: View {
                 }
                 .buttonStyle(.bordered)
 
+                Button(store.text(.exportSelected)) {
+                    exportSelectedPrompt()
+                }
+                .buttonStyle(.bordered)
+                .disabled(store.selectedPrompt == nil)
+
                 Button(store.text(.importAction)) {
                     chooseImportFile()
                 }
@@ -178,6 +184,34 @@ private struct PromptSidebar: View {
         } catch {
             exportErrorMessage = error.localizedDescription
         }
+    }
+
+    private func exportSelectedPrompt() {
+        guard let selectedPrompt = store.selectedPrompt else { return }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = defaultSelectedExportName(for: selectedPrompt.name)
+        panel.canCreateDirectories = true
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            try store.exportSelectedPrompt(to: url)
+        } catch {
+            exportErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func defaultSelectedExportName(for promptName: String) -> String {
+        let sanitizedName = promptName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+
+        let fallbackName = store.appLanguage == .english ? "Selected Prompt" : "当前提示词"
+        let baseName = sanitizedName.isEmpty ? fallbackName : sanitizedName
+        return "\(baseName).json"
     }
 
     private func chooseImportFile() {

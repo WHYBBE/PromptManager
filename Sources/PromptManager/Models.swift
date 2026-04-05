@@ -35,7 +35,7 @@ enum AppLanguage: String, Codable, CaseIterable, Identifiable {
 }
 
 enum L10nKey {
-    case appName, export, importAction, newPrompt, deletePrompt, importDataTitle, replaceData, mergeData, cancel, importDataMessage, importFailed, exportFailed, ok, evolve, fork, deleteCurrentVersion, saveSummary, summary, versionContent, branchName, versionTitle, promptContent, effectDescription, notes, saveCurrentVersion, switchCurrentVersion, customTypes, currentPromptType, typeName, color, addType, save, delete, inUse, createPromptTitle, createPromptHint, name, type, createPromptAction, noVisualizationData, versionGraph, historyVersions, currentInUse, language, theme, system, light, dark
+    case appName, export, exportSelected, importAction, newPrompt, deletePrompt, importDataTitle, replaceData, mergeData, cancel, importDataMessage, importFailed, exportFailed, ok, evolve, fork, deleteCurrentVersion, saveSummary, summary, versionContent, branchName, versionTitle, promptContent, effectDescription, notes, saveCurrentVersion, switchCurrentVersion, customTypes, currentPromptType, typeName, color, addType, save, delete, inUse, createPromptTitle, createPromptHint, name, type, createPromptAction, noVisualizationData, versionGraph, historyVersions, currentInUse, language, theme, system, light, dark
 }
 
 enum AppThemeMode: String, Codable, CaseIterable, Identifiable {
@@ -230,6 +230,8 @@ final class PromptStore: ObservableObject {
         case (_, .appName): return "Prompt Manager"
         case (.english, .export): return "Export"
         case (.chinese, .export): return "导出"
+        case (.english, .exportSelected): return "Export Selected"
+        case (.chinese, .exportSelected): return "导出当前选中"
         case (.english, .importAction): return "Import"
         case (.chinese, .importAction): return "导入"
         case (.english, .newPrompt): return "New"
@@ -562,6 +564,36 @@ final class PromptStore: ObservableObject {
             selectedPromptID: selectedPromptID,
             selectedVersionID: selectedVersionID
         )
+        let data = try JSONEncoder.promptStoreEncoder.encode(snapshot)
+        try data.write(to: url, options: .atomic)
+    }
+
+    func exportSelectedPrompt(to url: URL) throws {
+        guard let selectedPrompt else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+
+        let exportedCategories: [PromptCategory]
+        if let category = category(for: selectedPrompt.categoryID) {
+            exportedCategories = [category]
+        } else {
+            exportedCategories = []
+        }
+
+        let exportedSelectedVersionID: UUID?
+        if selectedPrompt.versions.contains(where: { $0.id == selectedVersionID }) {
+            exportedSelectedVersionID = selectedVersionID
+        } else {
+            exportedSelectedVersionID = selectedPrompt.currentVersionID
+        }
+
+        let snapshot = PromptStoreSnapshot(
+            categories: exportedCategories,
+            prompts: [selectedPrompt],
+            selectedPromptID: selectedPrompt.id,
+            selectedVersionID: exportedSelectedVersionID
+        )
+
         let data = try JSONEncoder.promptStoreEncoder.encode(snapshot)
         try data.write(to: url, options: .atomic)
     }
