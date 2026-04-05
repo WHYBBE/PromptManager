@@ -14,6 +14,7 @@ struct ContentView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .background(AppTheme.panelBackground)
+        .navigationTitle("Prompt Manager")
     }
 }
 
@@ -26,7 +27,7 @@ private struct PromptSidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack() {
-                Text("提示词")
+                Text("Prompt Manager")
                     .font(.title2.weight(.semibold))
                 Spacer()
                 Menu {
@@ -147,7 +148,7 @@ private struct PromptSidebar: View {
     private func exportAllData() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "prompt-manager-export.json"
+        panel.nameFieldStringValue = "Prompt Manager Export.json"
         panel.canCreateDirectories = true
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -185,6 +186,7 @@ private struct PromptSidebar: View {
 private struct PromptWorkspace: View {
     @EnvironmentObject private var store: PromptStore
     @State private var summary = ""
+    @State private var branchName = ""
     @State private var title = ""
     @State private var content = ""
     @State private var effect = ""
@@ -291,6 +293,7 @@ private struct PromptWorkspace: View {
             Text("版本内容")
                 .font(.title3.weight(.semibold))
 
+            TextField("分支名", text: $branchName)
             TextField("版本标题", text: $title)
             MultilineInput(title: "提示词内容", text: $content, minHeight: 220)
             MultilineInput(title: "效果描述", text: $effect, minHeight: 100)
@@ -298,6 +301,7 @@ private struct PromptWorkspace: View {
 
             HStack {
                 Button("保存当前版本") {
+                    store.renameSelectedBranch(to: branchName)
                     store.updateSelectedVersion(title: title, content: content, effectDescription: effect, notes: notes)
                 }
                 .buttonStyle(.borderedProminent)
@@ -362,6 +366,7 @@ private struct PromptWorkspace: View {
 
     private func apply(version: PromptVersion) {
         summary = store.selectedPrompt?.summary ?? ""
+        branchName = version.branchName
         title = version.title
         content = version.content
         effect = version.effectDescription

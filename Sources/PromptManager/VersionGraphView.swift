@@ -73,6 +73,16 @@ struct VersionGraphView: View {
     }
 }
 
+private struct GraphNodeButtonStyle: PrimitiveButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Rectangle())
+            .onTapGesture {
+                configuration.trigger()
+            }
+    }
+}
+
 private struct VersionNodeCard: View {
     @EnvironmentObject private var store: PromptStore
     let version: PromptVersion
@@ -119,7 +129,7 @@ private struct VersionNodeCard: View {
             )
             .shadow(color: Color(light: Color(red: 0.77, green: 0.85, blue: 0.94).opacity(0.32), dark: Color.black.opacity(0.28)), radius: 12, y: 8)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GraphNodeButtonStyle())
         .position(position)
     }
 }

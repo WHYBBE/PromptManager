@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @main
-struct PromptManagerApp: App {
+struct PromptManager: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = PromptStore.persistedOrSample
 

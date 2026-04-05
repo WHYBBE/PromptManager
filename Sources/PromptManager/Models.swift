@@ -162,7 +162,7 @@ final class PromptStore: ObservableObject {
     private static let saveURL: URL = {
         let supportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
-        let directoryURL = supportURL.appendingPathComponent("PromptManagerApp", isDirectory: true)
+        let directoryURL = supportURL.appendingPathComponent("PromptManager", isDirectory: true)
         try? FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         return directoryURL.appendingPathComponent("prompt-store.json")
     }()
@@ -282,6 +282,30 @@ final class PromptStore: ObservableObject {
         prompts[promptIndex].versions[versionIndex].content = content
         prompts[promptIndex].versions[versionIndex].effectDescription = effectDescription
         prompts[promptIndex].versions[versionIndex].notes = notes
+        prompts[promptIndex].updatedAt = .now
+        sortPrompts()
+        persist()
+    }
+
+    func renameSelectedBranch(to branchName: String) {
+        let trimmed = branchName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let promptIndex = selectedPromptIndex,
+              let versionID = selectedVersionID,
+              let version = prompts[promptIndex].versions.first(where: { $0.id == versionID }),
+              !trimmed.isEmpty,
+              trimmed != version.branchName else { return }
+
+        let conflictingBranch = prompts[promptIndex].versions.contains {
+            $0.branchName == trimmed && $0.branchName != version.branchName
+        }
+        guard !conflictingBranch else { return }
+
+        for index in prompts[promptIndex].versions.indices {
+            if prompts[promptIndex].versions[index].branchName == version.branchName {
+                prompts[promptIndex].versions[index].branchName = trimmed
+            }
+        }
+
         prompts[promptIndex].updatedAt = .now
         sortPrompts()
         persist()

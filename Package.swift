@@ -2,20 +2,20 @@
 import PackageDescription
 
 let package = Package(
-    name: "PromptManagerApp",
+    name: "PromptManager",
     platforms: [
         .macOS(.v14)
     ],
     products: [
         .executable(
-            name: "PromptManagerApp",
-            targets: ["PromptManagerApp"]
+            name: "PromptManager",
+            targets: ["PromptManager"]
         )
     ],
     targets: [
         .executableTarget(
-            name: "PromptManagerApp",
-            path: "Sources/PromptManagerApp"
+            name: "PromptManager",
+            path: "Sources/PromptManager"
         )
     ]
 )
