@@ -14,7 +14,7 @@ struct ContentView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .background(AppTheme.panelBackground)
-        .navigationTitle("Prompt Manager")
+        .navigationTitle(store.text(.appName))
     }
 }
 
@@ -28,7 +28,7 @@ private struct PromptSidebar: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack() {
                 Label {
-                    Text("Prompt Manager")
+                    Text(store.text(.appName))
                         .font(.title2.weight(.semibold))
                 } icon: {
                     Image(systemName: "info.circle.text.page.fill")
@@ -37,34 +37,48 @@ private struct PromptSidebar: View {
                 }
                 Spacer()
                 Menu {
+                    ForEach(AppLanguage.allCases) { language in
+                        Button {
+                            store.appLanguage = language
+                        } label: {
+                            Label(language.title, systemImage: language.symbolName)
+                        }
+                    }
+                } label: {
+                    Label(store.text(.language), systemImage: store.appLanguage.symbolName)
+                }
+                .fixedSize()
+                .menuStyle(.borderlessButton)
+
+                Menu {
                     ForEach(AppThemeMode.allCases) { mode in
                         Button {
                             store.appThemeMode = mode
                         } label: {
-                            Label(mode.title, systemImage: mode.symbolName)
+                            Label(mode.title(for: store.appLanguage), systemImage: mode.symbolName)
                         }
                     }
                 } label: {
-                    Label(store.appThemeMode.title, systemImage: store.appThemeMode.symbolName)
+                    Label(store.text(.theme), systemImage: store.appThemeMode.symbolName)
                 }
                 .fixedSize()
                 .menuStyle(.borderlessButton)
             }
 
             HStack {
-                Button("导出") {
+                Button(store.text(.export)) {
                     exportAllData()
                 }
                 .buttonStyle(.bordered)
 
-                Button("导入") {
+                Button(store.text(.importAction)) {
                     chooseImportFile()
                 }
                 .buttonStyle(.borderedProminent)
                 
                 Spacer()
 
-                Button("新建") {
+                Button(store.text(.newPrompt)) {
                     store.selectedPromptID = nil
                     store.selectedVersionID = nil
                 }
@@ -97,7 +111,7 @@ private struct PromptSidebar: View {
                     .padding(.vertical, 4)
                     .tag(prompt.id)
                     .contextMenu {
-                        Button("删除提示词", role: .destructive) {
+                        Button(store.text(.deletePrompt), role: .destructive) {
                             store.deletePrompt(prompt.id)
                         }
                     }
@@ -108,44 +122,44 @@ private struct PromptSidebar: View {
         }
         .padding(20)
         .confirmationDialog(
-            "导入数据",
+            store.text(.importDataTitle),
             isPresented: Binding(
                 get: { pendingImportURL != nil },
                 set: { if !$0 { pendingImportURL = nil } }
             ),
             titleVisibility: .visible
         ) {
-            Button("覆盖当前数据", role: .destructive) {
+            Button(store.text(.replaceData), role: .destructive) {
                 performImport(mode: .replace)
             }
-            Button("合并到当前数据") {
+            Button(store.text(.mergeData)) {
                 performImport(mode: .merge)
             }
-            Button("取消", role: .cancel) {
+            Button(store.text(.cancel), role: .cancel) {
                 pendingImportURL = nil
             }
         } message: {
-            Text("导入文件后，你可以选择覆盖当前数据，或把导入内容合并到当前数据中。")
+            Text(store.text(.importDataMessage))
         }
         .alert(
-            "导入失败",
+            store.text(.importFailed),
             isPresented: Binding(
                 get: { importErrorMessage != nil },
                 set: { if !$0 { importErrorMessage = nil } }
             )
         ) {
-            Button("知道了", role: .cancel) {}
+            Button(store.text(.ok), role: .cancel) {}
         } message: {
             Text(importErrorMessage ?? "")
         }
         .alert(
-            "导出失败",
+            store.text(.exportFailed),
             isPresented: Binding(
                 get: { exportErrorMessage != nil },
                 set: { if !$0 { exportErrorMessage = nil } }
             )
         ) {
-            Button("知道了", role: .cancel) {}
+            Button(store.text(.ok), role: .cancel) {}
         } message: {
             Text(exportErrorMessage ?? "")
         }
@@ -154,7 +168,7 @@ private struct PromptSidebar: View {
     private func exportAllData() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "Prompt Manager Export.json"
+        panel.nameFieldStringValue = store.appLanguage == .english ? "Prompt Manager Export.json" : "Prompt Manager 导出.json"
         panel.canCreateDirectories = true
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -249,22 +263,22 @@ private struct PromptWorkspace: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(prompt.name)
                         .font(.system(size: 30, weight: .bold))
-                    MultilineInput(title: "用途描述", text: $summary, minHeight: 84)
+                    MultilineInput(title: store.text(.summary), text: $summary, minHeight: 84)
                         .frame(maxWidth: 560)
                 }
                 Spacer()
                 HStack(spacing: 10) {
-                    Button("演化") {
+                    Button(store.text(.evolve)) {
                         store.evolveSelectedVersion()
                     }
                     .buttonStyle(.borderedProminent)
 
-                    Button("分叉") {
+                    Button(store.text(.fork)) {
                         store.forkSelectedVersion()
                     }
                     .buttonStyle(.bordered)
 
-                    Button("删除提示词", role: .destructive) {
+                    Button(store.text(.deletePrompt), role: .destructive) {
                         store.deletePrompt(prompt.id)
                     }
                     .buttonStyle(.bordered)
@@ -281,12 +295,12 @@ private struct PromptWorkspace: View {
 
             HStack {
                 Spacer()
-                Button("删除当前版本", role: .destructive) {
+                Button(store.text(.deleteCurrentVersion), role: .destructive) {
                     store.deleteSelectedVersion()
                 }
                 .buttonStyle(.bordered)
 
-                Button("保存用途描述") {
+                Button(store.text(.saveSummary)) {
                     store.updateSelectedPromptSummary(summary)
                 }
                 .buttonStyle(.bordered)
@@ -296,23 +310,23 @@ private struct PromptWorkspace: View {
 
     private func versionEditor(version: PromptVersion) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("版本内容")
+            Text(store.text(.versionContent))
                 .font(.title3.weight(.semibold))
 
-            TextField("分支名", text: $branchName)
-            TextField("版本标题", text: $title)
-            MultilineInput(title: "提示词内容", text: $content, minHeight: 220)
-            MultilineInput(title: "效果描述", text: $effect, minHeight: 100)
-            MultilineInput(title: "备注", text: $notes, minHeight: 84)
+            TextField(store.text(.branchName), text: $branchName)
+            TextField(store.text(.versionTitle), text: $title)
+            MultilineInput(title: store.text(.promptContent), text: $content, minHeight: 220)
+            MultilineInput(title: store.text(.effectDescription), text: $effect, minHeight: 100)
+            MultilineInput(title: store.text(.notes), text: $notes, minHeight: 84)
 
             HStack {
-                Button("保存当前版本") {
+                Button(store.text(.saveCurrentVersion)) {
                     store.renameSelectedBranch(to: branchName)
                     store.updateSelectedVersion(title: title, content: content, effectDescription: effect, notes: notes)
                 }
                 .buttonStyle(.borderedProminent)
 
-                Button("切换为当前使用版本") {
+                Button(store.text(.switchCurrentVersion)) {
                     store.switchCurrentVersion(to: version.id)
                 }
                 .buttonStyle(.bordered)
@@ -326,11 +340,11 @@ private struct PromptWorkspace: View {
 
     private var categoryEditor: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("自定义类型")
+            Text(store.text(.customTypes))
                 .font(.title3.weight(.semibold))
 
             if let prompt = store.selectedPrompt {
-                Picker("当前提示词类型", selection: Binding(
+                Picker(store.text(.currentPromptType), selection: Binding(
                     get: { prompt.categoryID },
                     set: { store.updateSelectedPromptCategory($0) }
                 )) {
@@ -342,9 +356,9 @@ private struct PromptWorkspace: View {
             }
 
             HStack {
-                TextField("类型名称", text: $draftCategoryName)
+                TextField(store.text(.typeName), text: $draftCategoryName)
                 ColorPicker(
-                    "颜色",
+                    store.text(.color),
                     selection: Binding(
                         get: { Color(hex: draftCategoryColor) },
                         set: { draftCategoryColor = $0.hexString ?? draftCategoryColor }
@@ -352,7 +366,7 @@ private struct PromptWorkspace: View {
                     supportsOpacity: false
                 )
                 .labelsHidden()
-                Button("添加类型") {
+                Button(store.text(.addType)) {
                     store.addCategory(name: draftCategoryName, colorHex: draftCategoryColor)
                     draftCategoryName = ""
                     draftCategoryColor = "F97316"
@@ -391,16 +405,16 @@ private struct PromptWorkspace: View {
     private var newPromptPanel: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("新建提示词")
+                Text(store.text(.createPromptTitle))
                     .font(.system(size: 30, weight: .bold))
-                Text("先创建名称和用途描述，再在创建后的版本中继续编辑具体提示词内容。")
+                Text(store.text(.createPromptHint))
                     .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 16) {
-                TextField("名称", text: $newPromptName)
+                TextField(store.text(.name), text: $newPromptName)
 
-                Picker("类型", selection: Binding(
+                Picker(store.text(.type), selection: Binding(
                     get: { newPromptCategoryID ?? store.categories.first?.id ?? UUID() },
                     set: { newPromptCategoryID = $0 }
                 )) {
@@ -409,11 +423,11 @@ private struct PromptWorkspace: View {
                     }
                 }
 
-                MultilineInput(title: "用途描述", text: $newPromptSummary, minHeight: 120)
+                MultilineInput(title: store.text(.summary), text: $newPromptSummary, minHeight: 120)
 
                 HStack {
                     Spacer()
-                    Button("创建提示词") {
+                    Button(store.text(.createPromptAction)) {
                         createPrompt()
                     }
                     .buttonStyle(.borderedProminent)
@@ -450,13 +464,13 @@ private struct PromptWorkspace: View {
                 .fill(category.color)
                 .frame(width: 10, height: 10)
 
-            TextField("类型名称", text: Binding(
+            TextField(store.text(.typeName), text: Binding(
                 get: { draft.wrappedValue.name },
                 set: { draft.wrappedValue.name = $0 }
             ))
 
             ColorPicker(
-                "颜色",
+                store.text(.color),
                 selection: Binding(
                     get: { Color(hex: draft.wrappedValue.colorHex) },
                     set: { color in
@@ -469,19 +483,19 @@ private struct PromptWorkspace: View {
             )
             .labelsHidden()
 
-            Button("保存") {
+            Button(store.text(.save)) {
                 store.updateCategory(id: category.id, name: draft.wrappedValue.name, colorHex: draft.wrappedValue.colorHex)
             }
             .buttonStyle(.bordered)
 
-            Button("删除", role: .destructive) {
+            Button(store.text(.delete), role: .destructive) {
                 store.deleteCategory(id: category.id)
             }
             .buttonStyle(.bordered)
             .disabled(inUse || store.categories.count <= 1)
 
             if inUse {
-                Text("使用中")
+                Text(store.text(.inUse))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -531,7 +545,7 @@ private struct VersionInspectorPanel: View {
                     }
                 }
             } else {
-                ContentUnavailableView("没有可视化数据", systemImage: "point.3.filled.connected.trianglepath.dotted")
+                ContentUnavailableView(store.text(.noVisualizationData), systemImage: "point.3.filled.connected.trianglepath.dotted")
             }
         }
         .background(
@@ -564,11 +578,12 @@ private struct MultilineInput: View {
 }
 
 private struct VersionGraphSection: View {
+    @EnvironmentObject private var store: PromptStore
     let prompt: PromptDocument
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("版本关系图")
+            Text(store.text(.versionGraph))
                 .font(.title3.weight(.semibold))
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
@@ -588,7 +603,7 @@ private struct VersionHistoryPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("历史版本")
+            Text(store.text(.historyVersions))
                 .font(.title3.weight(.semibold))
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
@@ -605,7 +620,7 @@ private struct VersionHistoryPanel: View {
                                         Text(version.title)
                                             .font(.headline)
                                         if prompt.currentVersionID == version.id {
-                                            Text("当前使用")
+                                            Text(store.text(.currentInUse))
                                                 .font(.caption2.weight(.bold))
                                                 .padding(.horizontal, 6)
                                                 .padding(.vertical, 3)

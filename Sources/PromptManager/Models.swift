@@ -13,6 +13,31 @@ enum PromptImportMode {
     case merge
 }
 
+enum AppLanguage: String, Codable, CaseIterable, Identifiable {
+    case chinese
+    case english
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .chinese: return "中文"
+        case .english: return "English"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .chinese: return "character.book.closed"
+        case .english: return "textformat.abc"
+        }
+    }
+}
+
+enum L10nKey {
+    case appName, export, importAction, newPrompt, deletePrompt, importDataTitle, replaceData, mergeData, cancel, importDataMessage, importFailed, exportFailed, ok, evolve, fork, deleteCurrentVersion, saveSummary, summary, versionContent, branchName, versionTitle, promptContent, effectDescription, notes, saveCurrentVersion, switchCurrentVersion, customTypes, currentPromptType, typeName, color, addType, save, delete, inUse, createPromptTitle, createPromptHint, name, type, createPromptAction, noVisualizationData, versionGraph, historyVersions, currentInUse, language, theme, system, light, dark
+}
+
 enum AppThemeMode: String, Codable, CaseIterable, Identifiable {
     case system
     case light
@@ -20,11 +45,11 @@ enum AppThemeMode: String, Codable, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(for language: AppLanguage) -> String {
         switch self {
-        case .system: return "自动"
-        case .light: return "浅色"
-        case .dark: return "深色"
+        case .system: return language == .english ? "System" : "自动"
+        case .light: return language == .english ? "Light" : "浅色"
+        case .dark: return language == .english ? "Dark" : "深色"
         }
     }
 
@@ -157,6 +182,7 @@ final class PromptStore: ObservableObject {
     @Published var prompts: [PromptDocument]
     @Published var selectedPromptID: UUID?
     @Published var selectedVersionID: UUID?
+    @AppStorage("appLanguage") var appLanguageRawValue: String = AppLanguage.chinese.rawValue
     @AppStorage("appThemeMode") var appThemeModeRawValue: String = AppThemeMode.system.rawValue
 
     private static let saveURL: URL = {
@@ -192,6 +218,111 @@ final class PromptStore: ObservableObject {
     var appThemeMode: AppThemeMode {
         get { AppThemeMode(rawValue: appThemeModeRawValue) ?? .system }
         set { appThemeModeRawValue = newValue.rawValue }
+    }
+
+    var appLanguage: AppLanguage {
+        get { AppLanguage(rawValue: appLanguageRawValue) ?? .chinese }
+        set { appLanguageRawValue = newValue.rawValue }
+    }
+
+    func text(_ key: L10nKey) -> String {
+        switch (appLanguage, key) {
+        case (_, .appName): return "Prompt Manager"
+        case (.english, .export): return "Export"
+        case (.chinese, .export): return "导出"
+        case (.english, .importAction): return "Import"
+        case (.chinese, .importAction): return "导入"
+        case (.english, .newPrompt): return "New"
+        case (.chinese, .newPrompt): return "新建"
+        case (.english, .deletePrompt): return "Delete Prompt"
+        case (.chinese, .deletePrompt): return "删除提示词"
+        case (.english, .importDataTitle): return "Import Data"
+        case (.chinese, .importDataTitle): return "导入数据"
+        case (.english, .replaceData): return "Replace Current Data"
+        case (.chinese, .replaceData): return "覆盖当前数据"
+        case (.english, .mergeData): return "Merge Into Current Data"
+        case (.chinese, .mergeData): return "合并到当前数据"
+        case (.english, .cancel): return "Cancel"
+        case (.chinese, .cancel): return "取消"
+        case (.english, .importDataMessage): return "After choosing a file, you can replace the current data or merge the imported content into it."
+        case (.chinese, .importDataMessage): return "导入文件后，你可以选择覆盖当前数据，或把导入内容合并到当前数据中。"
+        case (.english, .importFailed): return "Import Failed"
+        case (.chinese, .importFailed): return "导入失败"
+        case (.english, .exportFailed): return "Export Failed"
+        case (.chinese, .exportFailed): return "导出失败"
+        case (.english, .ok): return "OK"
+        case (.chinese, .ok): return "知道了"
+        case (.english, .evolve): return "Evolve"
+        case (.chinese, .evolve): return "演化"
+        case (.english, .fork): return "Fork"
+        case (.chinese, .fork): return "分叉"
+        case (.english, .deleteCurrentVersion): return "Delete Current Version"
+        case (.chinese, .deleteCurrentVersion): return "删除当前版本"
+        case (.english, .saveSummary): return "Save Summary"
+        case (.chinese, .saveSummary): return "保存用途描述"
+        case (.english, .summary): return "Summary"
+        case (.chinese, .summary): return "用途描述"
+        case (.english, .versionContent): return "Version Content"
+        case (.chinese, .versionContent): return "版本内容"
+        case (.english, .branchName): return "Branch Name"
+        case (.chinese, .branchName): return "分支名"
+        case (.english, .versionTitle): return "Version Title"
+        case (.chinese, .versionTitle): return "版本标题"
+        case (.english, .promptContent): return "Prompt Content"
+        case (.chinese, .promptContent): return "提示词内容"
+        case (.english, .effectDescription): return "Effect Description"
+        case (.chinese, .effectDescription): return "效果描述"
+        case (.english, .notes): return "Notes"
+        case (.chinese, .notes): return "备注"
+        case (.english, .saveCurrentVersion): return "Save Current Version"
+        case (.chinese, .saveCurrentVersion): return "保存当前版本"
+        case (.english, .switchCurrentVersion): return "Use This Version"
+        case (.chinese, .switchCurrentVersion): return "切换为当前使用版本"
+        case (.english, .customTypes): return "Custom Types"
+        case (.chinese, .customTypes): return "自定义类型"
+        case (.english, .currentPromptType): return "Current Prompt Type"
+        case (.chinese, .currentPromptType): return "当前提示词类型"
+        case (.english, .typeName): return "Type Name"
+        case (.chinese, .typeName): return "类型名称"
+        case (.english, .color): return "Color"
+        case (.chinese, .color): return "颜色"
+        case (.english, .addType): return "Add Type"
+        case (.chinese, .addType): return "添加类型"
+        case (.english, .save): return "Save"
+        case (.chinese, .save): return "保存"
+        case (.english, .delete): return "Delete"
+        case (.chinese, .delete): return "删除"
+        case (.english, .inUse): return "In Use"
+        case (.chinese, .inUse): return "使用中"
+        case (.english, .createPromptTitle): return "Create Prompt"
+        case (.chinese, .createPromptTitle): return "新建提示词"
+        case (.english, .createPromptHint): return "Start with a name and summary, then fill in the actual prompt content after creation."
+        case (.chinese, .createPromptHint): return "先创建名称和用途描述，再在创建后的版本中继续编辑具体提示词内容。"
+        case (.english, .name): return "Name"
+        case (.chinese, .name): return "名称"
+        case (.english, .type): return "Type"
+        case (.chinese, .type): return "类型"
+        case (.english, .createPromptAction): return "Create Prompt"
+        case (.chinese, .createPromptAction): return "创建提示词"
+        case (.english, .noVisualizationData): return "No Visualization Data"
+        case (.chinese, .noVisualizationData): return "没有可视化数据"
+        case (.english, .versionGraph): return "Version Graph"
+        case (.chinese, .versionGraph): return "版本关系图"
+        case (.english, .historyVersions): return "Version History"
+        case (.chinese, .historyVersions): return "历史版本"
+        case (.english, .currentInUse): return "Current"
+        case (.chinese, .currentInUse): return "当前使用"
+        case (.english, .language): return "Language"
+        case (.chinese, .language): return "语言"
+        case (.english, .theme): return "Theme"
+        case (.chinese, .theme): return "主题"
+        case (.english, .system): return "System"
+        case (.chinese, .system): return "自动"
+        case (.english, .light): return "Light"
+        case (.chinese, .light): return "浅色"
+        case (.english, .dark): return "Dark"
+        case (.chinese, .dark): return "深色"
+        }
     }
 
     func selectPrompt(_ promptID: UUID) {
