@@ -245,7 +245,7 @@ final class PromptStore: ObservableObject {
         persist()
     }
 
-    func addPrompt(name: String, categoryID: UUID, summary: String, content: String, effectDescription: String) {
+    func addPrompt(name: String, categoryID: UUID, summary: String, content: String = "", effectDescription: String = "") {
         let promptID = UUID()
         let initialVersion = PromptVersion(
             promptID: promptID,

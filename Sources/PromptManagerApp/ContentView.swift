@@ -19,11 +19,6 @@ struct ContentView: View {
 
 private struct PromptSidebar: View {
     @EnvironmentObject private var store: PromptStore
-    @State private var draftName = ""
-    @State private var draftSummary = ""
-    @State private var draftContent = ""
-    @State private var draftEffect = ""
-    @State private var selectedCategoryID: UUID?
     @State private var pendingImportURL: URL?
     @State private var importErrorMessage: String?
     @State private var exportErrorMessage: String?
@@ -34,30 +29,39 @@ private struct PromptSidebar: View {
                 Text("提示词")
                     .font(.title2.weight(.semibold))
                 Spacer()
-                HStack {
-                    Menu {
-                        ForEach(AppThemeMode.allCases) { mode in
-                            Button {
-                                store.appThemeMode = mode
-                            } label: {
-                                Label(mode.title, systemImage: mode.symbolName)
-                            }
+                Menu {
+                    ForEach(AppThemeMode.allCases) { mode in
+                        Button {
+                            store.appThemeMode = mode
+                        } label: {
+                            Label(mode.title, systemImage: mode.symbolName)
                         }
-                    } label: {
-                        Label(store.appThemeMode.title, systemImage: store.appThemeMode.symbolName)
                     }
-                    .menuStyle(.borderlessButton)
-
-                    Button("导出") {
-                        exportAllData()
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button("导入") {
-                        chooseImportFile()
-                    }
-                    .buttonStyle(.borderedProminent)
+                } label: {
+                    Label(store.appThemeMode.title, systemImage: store.appThemeMode.symbolName)
                 }
+                .fixedSize()
+                .menuStyle(.borderlessButton)
+            }
+
+            HStack {
+                Button("导出") {
+                    exportAllData()
+                }
+                .buttonStyle(.bordered)
+
+                Button("导入") {
+                    chooseImportFile()
+                }
+                .buttonStyle(.borderedProminent)
+                
+                Spacer()
+
+                Button("新建") {
+                    store.selectedPromptID = nil
+                    store.selectedVersionID = nil
+                }
+                .buttonStyle(.bordered)
             }
 
             List(selection: Binding(
@@ -94,43 +98,8 @@ private struct PromptSidebar: View {
             }
             .frame(maxHeight: .infinity)
 
-            Divider()
-
-            VStack(alignment: .leading, spacing: 10) {
-                Text("新建提示词")
-                    .font(.headline)
-                TextField("名称", text: $draftName)
-                Picker("类型", selection: Binding(
-                    get: { selectedCategoryID ?? store.categories.first?.id ?? UUID() },
-                    set: { selectedCategoryID = $0 }
-                )) {
-                    ForEach(store.categories) { category in
-                        Text(category.name).tag(category.id)
-                    }
-                }
-                MultilineInput(title: "提示词内容", text: $draftContent, minHeight: 108)
-                Button("创建") {
-                    guard let categoryID = selectedCategoryID ?? store.categories.first?.id else { return }
-                    store.addPrompt(
-                        name: draftName,
-                        categoryID: categoryID,
-                        summary: draftSummary,
-                        content: draftContent,
-                        effectDescription: draftEffect
-                    )
-                    draftName = ""
-                    draftSummary = ""
-                    draftContent = ""
-                    draftEffect = ""
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(draftName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
         }
         .padding(20)
-        .onAppear {
-            selectedCategoryID = store.categories.first?.id
-        }
         .confirmationDialog(
             "导入数据",
             isPresented: Binding(
@@ -206,7 +175,6 @@ private struct PromptSidebar: View {
         do {
             try store.importData(from: url, mode: mode)
             pendingImportURL = nil
-            selectedCategoryID = store.categories.first?.id
         } catch {
             pendingImportURL = nil
             importErrorMessage = error.localizedDescription
@@ -224,6 +192,9 @@ private struct PromptWorkspace: View {
     @State private var draftCategoryName = ""
     @State private var draftCategoryColor = "F97316"
     @State private var categoryDrafts: [UUID: EditableCategory] = [:]
+    @State private var newPromptName = ""
+    @State private var newPromptSummary = ""
+    @State private var newPromptCategoryID: UUID?
 
     var body: some View {
         Group {
@@ -246,8 +217,21 @@ private struct PromptWorkspace: View {
                     }
                 }
             } else {
-                ContentUnavailableView("没有选中提示词", systemImage: "text.badge.plus")
+                ScrollView {
+                    newPromptPanel
+                        .padding(24)
+                }
+                .background(Color(nsColor: .windowBackgroundColor))
             }
+        }
+        .onAppear {
+            newPromptCategoryID = store.categories.first?.id
+        }
+        .onChange(of: store.categories) { _, categories in
+            if let selected = newPromptCategoryID, categories.contains(where: { $0.id == selected }) {
+                return
+            }
+            newPromptCategoryID = categories.first?.id
         }
     }
 
@@ -382,6 +366,55 @@ private struct PromptWorkspace: View {
         content = version.content
         effect = version.effectDescription
         notes = version.notes
+    }
+
+    private var newPromptPanel: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("新建提示词")
+                    .font(.system(size: 30, weight: .bold))
+                Text("先创建名称和用途描述，再在创建后的版本中继续编辑具体提示词内容。")
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 16) {
+                TextField("名称", text: $newPromptName)
+
+                Picker("类型", selection: Binding(
+                    get: { newPromptCategoryID ?? store.categories.first?.id ?? UUID() },
+                    set: { newPromptCategoryID = $0 }
+                )) {
+                    ForEach(store.categories) { category in
+                        Text(category.name).tag(category.id)
+                    }
+                }
+
+                MultilineInput(title: "用途描述", text: $newPromptSummary, minHeight: 120)
+
+                HStack {
+                    Spacer()
+                    Button("创建提示词") {
+                        createPrompt()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(newPromptName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(20)
+            .background(AppTheme.panelCard)
+        }
+    }
+
+    private func createPrompt() {
+        guard let categoryID = newPromptCategoryID ?? store.categories.first?.id else { return }
+        store.addPrompt(
+            name: newPromptName,
+            categoryID: categoryID,
+            summary: newPromptSummary
+        )
+        newPromptName = ""
+        newPromptSummary = ""
+        newPromptCategoryID = store.categories.first?.id
     }
 
     private func categoryRow(for category: PromptCategory) -> some View {
