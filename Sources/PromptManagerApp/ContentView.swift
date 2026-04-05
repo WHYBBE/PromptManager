@@ -13,6 +13,7 @@ struct ContentView: View {
             VersionInspectorPanel()
         }
         .navigationSplitViewStyle(.balanced)
+        .background(AppTheme.panelBackground)
     }
 }
 
@@ -34,6 +35,19 @@ private struct PromptSidebar: View {
                     .font(.title2.weight(.semibold))
                 Spacer()
                 HStack {
+                    Menu {
+                        ForEach(AppThemeMode.allCases) { mode in
+                            Button {
+                                store.appThemeMode = mode
+                            } label: {
+                                Label(mode.title, systemImage: mode.symbolName)
+                            }
+                        }
+                    } label: {
+                        Label(store.appThemeMode.title, systemImage: store.appThemeMode.symbolName)
+                    }
+                    .menuStyle(.borderlessButton)
+
                     Button("导出") {
                         exportAllData()
                     }
@@ -312,8 +326,7 @@ private struct PromptWorkspace: View {
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.primary.opacity(0.04))
+            AppTheme.panelCard
         )
     }
 
@@ -353,8 +366,7 @@ private struct PromptWorkspace: View {
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.primary.opacity(0.04))
+            AppTheme.panelCard
         )
         .onAppear {
             syncCategoryDrafts()
@@ -415,12 +427,7 @@ private struct PromptWorkspace: View {
         }
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.white.opacity(0.8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color(red: 0.82, green: 0.88, blue: 0.95), lineWidth: 1)
-                )
+            AppTheme.inputCard
         )
     }
 
@@ -454,7 +461,7 @@ private struct VersionInspectorPanel: View {
                             .frame(height: halfHeight)
 
                         Rectangle()
-                            .fill(Color(red: 0.82, green: 0.88, blue: 0.95))
+                            .fill(AppTheme.separator)
                             .frame(height: 1)
 
                         VersionGraphSection(prompt: prompt)
@@ -467,11 +474,7 @@ private struct VersionInspectorPanel: View {
             }
         }
         .background(
-            LinearGradient(
-                colors: [Color(red: 0.97, green: 0.98, blue: 1.0), Color(red: 0.92, green: 0.96, blue: 1.0)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            AppTheme.panelBackground
         )
     }
 }
@@ -493,12 +496,7 @@ private struct MultilineInput: View {
                 .padding(10)
                 .frame(minHeight: minHeight)
                 .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(.white)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(Color(red: 0.82, green: 0.88, blue: 0.95), lineWidth: 1)
-                        )
+                    AppTheme.inputCard
                 )
         }
     }
@@ -519,7 +517,7 @@ private struct VersionGraphSection: View {
                     .padding(5)
             }
         }
-        .background(Color(red: 0.95, green: 0.97, blue: 1.0))
+        .background(AppTheme.panelSurface)
     }
 }
 
@@ -555,27 +553,27 @@ private struct VersionHistoryPanel: View {
                                     }
                                     Text(version.effectDescription)
                                         .font(.subheadline)
-                                        .foregroundStyle(Color(red: 0.35, green: 0.43, blue: 0.53))
+                                        .foregroundStyle(AppTheme.secondaryText)
                                         .lineLimit(2)
                                 }
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 4) {
                                     Text(version.branchName)
                                     Text(version.createdAt.formatted(date: .numeric, time: .shortened))
-                                        .foregroundStyle(Color(red: 0.45, green: 0.53, blue: 0.62))
+                                        .foregroundStyle(AppTheme.tertiaryText)
                                 }
                                 .font(.caption)
                             }
                             .padding(14)
                             .background(
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(store.selectedVersionID == version.id ? Color(red: 0.84, green: 0.92, blue: 1.0) : .white)
+                                    .fill(store.selectedVersionID == version.id ? AppTheme.selectionFill : AppTheme.inputFill)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                            .stroke(Color(red: 0.80, green: 0.87, blue: 0.95), lineWidth: 1)
+                                            .stroke(AppTheme.separator, lineWidth: 1)
                                     )
                             )
-                            .shadow(color: Color(red: 0.80, green: 0.87, blue: 0.95).opacity(0.32), radius: 8, y: 4)
+                            .shadow(color: AppTheme.shadow, radius: 8, y: 4)
                         }
                         .buttonStyle(.plain)
                     }
@@ -584,6 +582,43 @@ private struct VersionHistoryPanel: View {
                 .padding(.bottom, 18)
             }
         }
-        .background(Color(red: 0.95, green: 0.97, blue: 1.0))
+        .background(AppTheme.panelSurface)
+    }
+}
+
+private enum AppTheme {
+    static let panelBackground = LinearGradient(
+        colors: [
+            Color(light: Color(red: 0.97, green: 0.98, blue: 1.0), dark: Color(red: 0.10, green: 0.11, blue: 0.13)),
+            Color(light: Color(red: 0.92, green: 0.96, blue: 1.0), dark: Color(red: 0.12, green: 0.14, blue: 0.18))
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    static let panelSurface = Color(light: Color(red: 0.95, green: 0.97, blue: 1.0), dark: Color(red: 0.13, green: 0.15, blue: 0.19))
+    static let inputFill = Color(light: .white, dark: Color(red: 0.16, green: 0.18, blue: 0.22))
+    static let selectionFill = Color(light: Color(red: 0.84, green: 0.92, blue: 1.0), dark: Color(red: 0.18, green: 0.29, blue: 0.42))
+    static let separator = Color(light: Color(red: 0.82, green: 0.88, blue: 0.95), dark: Color(red: 0.28, green: 0.32, blue: 0.38))
+    static let secondaryText = Color(light: Color(red: 0.35, green: 0.43, blue: 0.53), dark: Color(red: 0.72, green: 0.76, blue: 0.82))
+    static let tertiaryText = Color(light: Color(red: 0.45, green: 0.53, blue: 0.62), dark: Color(red: 0.58, green: 0.63, blue: 0.70))
+    static let shadow = Color(light: Color(red: 0.80, green: 0.87, blue: 0.95).opacity(0.32), dark: Color.black.opacity(0.28))
+
+    static var panelCard: some View {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .fill(Color.primary.opacity(0.06))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(separator.opacity(0.65), lineWidth: 1)
+            )
+    }
+
+    static var inputCard: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(inputFill)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(separator, lineWidth: 1)
+            )
     }
 }

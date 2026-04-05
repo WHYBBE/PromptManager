@@ -13,6 +13,38 @@ enum PromptImportMode {
     case merge
 }
 
+enum AppThemeMode: String, Codable, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: return "自动"
+        case .light: return "浅色"
+        case .dark: return "深色"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .system: return "circle.lefthalf.filled"
+        case .light: return "sun.max"
+        case .dark: return "moon"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
 struct PromptCategory: Identifiable, Hashable, Codable {
     var id: UUID
     var name: String
@@ -125,6 +157,7 @@ final class PromptStore: ObservableObject {
     @Published var prompts: [PromptDocument]
     @Published var selectedPromptID: UUID?
     @Published var selectedVersionID: UUID?
+    @AppStorage("appThemeMode") var appThemeModeRawValue: String = AppThemeMode.system.rawValue
 
     private static let saveURL: URL = {
         let supportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -154,6 +187,11 @@ final class PromptStore: ObservableObject {
         guard let prompt = selectedPrompt else { return nil }
         let targetID = selectedVersionID ?? prompt.currentVersionID
         return prompt.versions.first(where: { $0.id == targetID })
+    }
+
+    var appThemeMode: AppThemeMode {
+        get { AppThemeMode(rawValue: appThemeModeRawValue) ?? .system }
+        set { appThemeModeRawValue = newValue.rawValue }
     }
 
     func selectPrompt(_ promptID: UUID) {
@@ -564,6 +602,17 @@ extension PromptStore {
 }
 
 extension Color {
+    init(light: Color, dark: Color) {
+        self.init(nsColor: NSColor(name: nil) { appearance in
+            switch appearance.bestMatch(from: [.darkAqua, .aqua]) {
+            case .darkAqua:
+                return NSColor(dark)
+            default:
+                return NSColor(light)
+            }
+        })
+    }
+
     init(hex: String) {
         let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0

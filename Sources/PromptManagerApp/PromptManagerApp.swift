@@ -11,6 +11,7 @@ struct PromptManagerApp: App {
             ContentView()
                 .environmentObject(store)
                 .frame(minWidth: 1320, minHeight: 820)
+                .preferredColorScheme(store.appThemeMode.colorScheme)
         }
         .windowResizability(.contentMinSize)
     }
