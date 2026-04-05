@@ -1,6 +1,13 @@
 import Foundation
 import SwiftUI
 
+private struct PromptStoreSnapshot: Codable {
+    var categories: [PromptCategory]
+    var prompts: [PromptDocument]
+    var selectedPromptID: UUID?
+    var selectedVersionID: UUID?
+}
+
 struct PromptCategory: Identifiable, Hashable, Codable {
     var id: UUID
     var name: String
@@ -114,6 +121,14 @@ final class PromptStore: ObservableObject {
     @Published var selectedPromptID: UUID?
     @Published var selectedVersionID: UUID?
 
+    private static let saveURL: URL = {
+        let supportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let directoryURL = supportURL.appendingPathComponent("PromptManagerApp", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        return directoryURL.appendingPathComponent("prompt-store.json")
+    }()
+
     init(categories: [PromptCategory], prompts: [PromptDocument]) {
         self.categories = categories
         self.prompts = prompts.sorted { $0.updatedAt > $1.updatedAt }
@@ -155,6 +170,36 @@ final class PromptStore: ObservableObject {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         categories.append(PromptCategory(name: trimmed, colorHex: colorHex))
+        persist()
+    }
+
+    func updateCategory(id: UUID, name: String, colorHex: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let categoryIndex = categories.firstIndex(where: { $0.id == id }) else { return }
+
+        categories[categoryIndex].name = trimmed
+        categories[categoryIndex].colorHex = colorHex
+        persist()
+    }
+
+    func deleteCategory(id: UUID) {
+        guard categories.count > 1,
+              !prompts.contains(where: { $0.categoryID == id }),
+              let categoryIndex = categories.firstIndex(where: { $0.id == id }) else { return }
+
+        categories.remove(at: categoryIndex)
+        persist()
+    }
+
+    func updateSelectedPromptCategory(_ categoryID: UUID) {
+        guard let promptIndex = selectedPromptIndex,
+              categories.contains(where: { $0.id == categoryID }) else { return }
+
+        prompts[promptIndex].categoryID = categoryID
+        prompts[promptIndex].updatedAt = .now
+        sortPrompts()
+        persist()
     }
 
     func addPrompt(name: String, categoryID: UUID, summary: String, content: String, effectDescription: String) {
@@ -182,6 +227,7 @@ final class PromptStore: ObservableObject {
         prompts.insert(document, at: 0)
         selectedPromptID = document.id
         selectedVersionID = initialVersion.id
+        persist()
     }
 
     func updateSelectedVersion(title: String, content: String, effectDescription: String, notes: String) {
@@ -195,6 +241,15 @@ final class PromptStore: ObservableObject {
         prompts[promptIndex].versions[versionIndex].notes = notes
         prompts[promptIndex].updatedAt = .now
         sortPrompts()
+        persist()
+    }
+
+    func updateSelectedPromptSummary(_ summary: String) {
+        guard let promptIndex = selectedPromptIndex else { return }
+        prompts[promptIndex].summary = summary
+        prompts[promptIndex].updatedAt = .now
+        sortPrompts()
+        persist()
     }
 
     func evolveSelectedVersion() {
@@ -218,6 +273,7 @@ final class PromptStore: ObservableObject {
         prompts[promptIndex].updatedAt = .now
         selectedVersionID = next.id
         sortPrompts()
+        persist()
     }
 
     func forkSelectedVersion() {
@@ -249,6 +305,7 @@ final class PromptStore: ObservableObject {
         prompts[promptIndex].updatedAt = .now
         selectedVersionID = fork.id
         sortPrompts()
+        persist()
     }
 
     func switchCurrentVersion(to versionID: UUID) {
@@ -259,6 +316,45 @@ final class PromptStore: ObservableObject {
         prompts[promptIndex].updatedAt = .now
         selectedVersionID = versionID
         sortPrompts()
+        persist()
+    }
+
+    func deletePrompt(_ promptID: UUID) {
+        guard let promptIndex = prompts.firstIndex(where: { $0.id == promptID }) else { return }
+
+        let fallbackIndex = prompts.indices.contains(promptIndex + 1) ? promptIndex + 1 : promptIndex - 1
+        prompts.remove(at: promptIndex)
+
+        if prompts.indices.contains(fallbackIndex) {
+            let fallbackPrompt = prompts[fallbackIndex]
+            selectedPromptID = fallbackPrompt.id
+            selectedVersionID = fallbackPrompt.currentVersionID
+        } else {
+            selectedPromptID = nil
+            selectedVersionID = nil
+        }
+
+        persist()
+    }
+
+    func deleteSelectedVersion() {
+        guard let promptIndex = selectedPromptIndex,
+              let versionID = selectedVersionID,
+              let versionIndex = prompts[promptIndex].versions.firstIndex(where: { $0.id == versionID }) else { return }
+
+        let targetVersion = prompts[promptIndex].versions[versionIndex]
+        let hasChildren = prompts[promptIndex].versions.contains(where: { $0.parentID == targetVersion.id })
+        guard prompts[promptIndex].versions.count > 1, !hasChildren else { return }
+
+        prompts[promptIndex].versions.remove(at: versionIndex)
+        if prompts[promptIndex].currentVersionID == versionID {
+            let fallbackVersion = prompts[promptIndex].versions.max(by: { $0.createdAt < $1.createdAt })
+            prompts[promptIndex].currentVersionID = fallbackVersion?.id ?? prompts[promptIndex].versions[0].id
+        }
+        selectedVersionID = prompts[promptIndex].currentVersionID
+        prompts[promptIndex].updatedAt = .now
+        sortPrompts()
+        persist()
     }
 
     func versionLayout(for prompt: PromptDocument) -> VersionGraphLayout {
@@ -289,6 +385,22 @@ final class PromptStore: ObservableObject {
 
     private func sortPrompts() {
         prompts.sort { $0.updatedAt > $1.updatedAt }
+    }
+
+    private func persist() {
+        let snapshot = PromptStoreSnapshot(
+            categories: categories,
+            prompts: prompts,
+            selectedPromptID: selectedPromptID,
+            selectedVersionID: selectedVersionID
+        )
+
+        do {
+            let data = try JSONEncoder.promptStoreEncoder.encode(snapshot)
+            try data.write(to: Self.saveURL, options: .atomic)
+        } catch {
+            assertionFailure("Failed to persist prompt store: \(error)")
+        }
     }
 }
 
@@ -362,6 +474,25 @@ extension PromptStore {
 
         return PromptStore(categories: categories, prompts: [prompt])
     }
+
+    static var persistedOrSample: PromptStore {
+        guard let data = try? Data(contentsOf: saveURL),
+              let snapshot = try? JSONDecoder.promptStoreDecoder.decode(PromptStoreSnapshot.self, from: data) else {
+            let store = PromptStore.sample
+            store.persist()
+            return store
+        }
+
+        let store = PromptStore(categories: snapshot.categories, prompts: snapshot.prompts)
+        store.selectedPromptID = snapshot.selectedPromptID ?? snapshot.prompts.first?.id
+        if let selectedPromptID = store.selectedPromptID,
+           let prompt = store.prompts.first(where: { $0.id == selectedPromptID }) {
+            store.selectedVersionID = snapshot.selectedVersionID ?? prompt.currentVersionID
+        } else {
+            store.selectedVersionID = nil
+        }
+        return store
+    }
 }
 
 extension Color {
@@ -373,5 +504,22 @@ extension Color {
         let green = Double((int >> 8) & 0xFF) / 255
         let blue = Double(int & 0xFF) / 255
         self.init(red: red, green: green, blue: blue)
+    }
+}
+
+private extension JSONEncoder {
+    static var promptStoreEncoder: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }
+}
+
+private extension JSONDecoder {
+    static var promptStoreDecoder: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
     }
 }

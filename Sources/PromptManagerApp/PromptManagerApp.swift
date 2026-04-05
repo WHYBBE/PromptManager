@@ -4,7 +4,7 @@ import SwiftUI
 @main
 struct PromptManagerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var store = PromptStore.sample
+    @StateObject private var store = PromptStore.persistedOrSample
 
     var body: some Scene {
         WindowGroup {

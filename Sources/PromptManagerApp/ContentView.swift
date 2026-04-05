@@ -53,6 +53,11 @@ private struct PromptSidebar: View {
                     }
                     .padding(.vertical, 4)
                     .tag(prompt.id)
+                    .contextMenu {
+                        Button("删除提示词", role: .destructive) {
+                            store.deletePrompt(prompt.id)
+                        }
+                    }
                 }
             }
             .frame(maxHeight: .infinity)
@@ -99,12 +104,14 @@ private struct PromptSidebar: View {
 
 private struct PromptWorkspace: View {
     @EnvironmentObject private var store: PromptStore
+    @State private var summary = ""
     @State private var title = ""
     @State private var content = ""
     @State private var effect = ""
     @State private var notes = ""
     @State private var draftCategoryName = ""
     @State private var draftCategoryColor = "F97316"
+    @State private var categoryDrafts: [UUID: EditableCategory] = [:]
 
     var body: some View {
         Group {
@@ -138,8 +145,8 @@ private struct PromptWorkspace: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(prompt.name)
                         .font(.system(size: 30, weight: .bold))
-                    Text(prompt.summary)
-                        .foregroundStyle(.secondary)
+                    MultilineInput(title: "用途描述", text: $summary, minHeight: 84)
+                        .frame(maxWidth: 560)
                 }
                 Spacer()
                 HStack(spacing: 10) {
@@ -152,6 +159,11 @@ private struct PromptWorkspace: View {
                         store.forkSelectedVersion()
                     }
                     .buttonStyle(.bordered)
+
+                    Button("删除提示词", role: .destructive) {
+                        store.deletePrompt(prompt.id)
+                    }
+                    .buttonStyle(.bordered)
                 }
             }
 
@@ -162,6 +174,19 @@ private struct PromptWorkspace: View {
                     .foregroundStyle(.secondary)
             }
             .font(.subheadline)
+
+            HStack {
+                Spacer()
+                Button("删除当前版本", role: .destructive) {
+                    store.deleteSelectedVersion()
+                }
+                .buttonStyle(.bordered)
+
+                Button("保存用途描述") {
+                    store.updateSelectedPromptSummary(summary)
+                }
+                .buttonStyle(.bordered)
+            }
         }
     }
 
@@ -199,6 +224,18 @@ private struct PromptWorkspace: View {
             Text("自定义类型")
                 .font(.title3.weight(.semibold))
 
+            if let prompt = store.selectedPrompt {
+                Picker("当前提示词类型", selection: Binding(
+                    get: { prompt.categoryID },
+                    set: { store.updateSelectedPromptCategory($0) }
+                )) {
+                    ForEach(store.categories) { category in
+                        Text(category.name).tag(category.id)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
             HStack {
                 TextField("类型名称", text: $draftCategoryName)
                 TextField("颜色 Hex", text: $draftCategoryColor)
@@ -210,11 +247,10 @@ private struct PromptWorkspace: View {
                 .disabled(draftCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
 
-            FlowLayout(items: store.categories) { category in
-                Label(category.name, systemImage: "tag.fill")
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(category.color.opacity(0.18), in: Capsule())
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(store.categories) { category in
+                    categoryRow(for: category)
+                }
             }
         }
         .padding(20)
@@ -222,14 +258,86 @@ private struct PromptWorkspace: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color.primary.opacity(0.04))
         )
+        .onAppear {
+            syncCategoryDrafts()
+        }
+        .onChange(of: store.categories) { _, _ in
+            syncCategoryDrafts()
+        }
     }
 
     private func apply(version: PromptVersion) {
+        summary = store.selectedPrompt?.summary ?? ""
         title = version.title
         content = version.content
         effect = version.effectDescription
         notes = version.notes
     }
+
+    private func categoryRow(for category: PromptCategory) -> some View {
+        let draft = Binding(
+            get: { categoryDrafts[category.id] ?? EditableCategory(name: category.name, colorHex: category.colorHex) },
+            set: { categoryDrafts[category.id] = $0 }
+        )
+
+        let inUse = store.prompts.contains(where: { $0.categoryID == category.id })
+
+        return HStack(spacing: 10) {
+            Circle()
+                .fill(category.color)
+                .frame(width: 10, height: 10)
+
+            TextField("类型名称", text: Binding(
+                get: { draft.wrappedValue.name },
+                set: { draft.wrappedValue.name = $0 }
+            ))
+
+            TextField("颜色 Hex", text: Binding(
+                get: { draft.wrappedValue.colorHex },
+                set: { draft.wrappedValue.colorHex = $0 }
+            ))
+            .frame(width: 110)
+
+            Button("保存") {
+                store.updateCategory(id: category.id, name: draft.wrappedValue.name, colorHex: draft.wrappedValue.colorHex)
+            }
+            .buttonStyle(.bordered)
+
+            Button("删除", role: .destructive) {
+                store.deleteCategory(id: category.id)
+            }
+            .buttonStyle(.bordered)
+            .disabled(inUse || store.categories.count <= 1)
+
+            if inUse {
+                Text("使用中")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.white.opacity(0.8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color(red: 0.82, green: 0.88, blue: 0.95), lineWidth: 1)
+                )
+        )
+    }
+
+    private func syncCategoryDrafts() {
+        var nextDrafts: [UUID: EditableCategory] = [:]
+        for category in store.categories {
+            nextDrafts[category.id] = categoryDrafts[category.id] ?? EditableCategory(name: category.name, colorHex: category.colorHex)
+        }
+        categoryDrafts = nextDrafts
+    }
+}
+
+private struct EditableCategory: Equatable {
+    var name: String
+    var colorHex: String
 }
 
 private struct VersionInspectorPanel: View {
