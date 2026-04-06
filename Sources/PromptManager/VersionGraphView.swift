@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct VersionGraphView: View {
@@ -73,13 +74,10 @@ struct VersionGraphView: View {
     }
 }
 
-private struct GraphNodeButtonStyle: PrimitiveButtonStyle {
+private struct GraphNodeButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .contentShape(Rectangle())
-            .onTapGesture {
-                configuration.trigger()
-            }
     }
 }
 
@@ -92,10 +90,7 @@ private struct VersionNodeCard: View {
     let size: CGSize
 
     var body: some View {
-        Button {
-            store.selectVersion(version.id)
-            store.switchCurrentVersion(to: version.id)
-        } label: {
+        Button(action: handleClick) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(version.title)
@@ -131,6 +126,14 @@ private struct VersionNodeCard: View {
         }
         .buttonStyle(GraphNodeButtonStyle())
         .position(position)
+    }
+
+    private func handleClick() {
+        if NSApp.currentEvent?.clickCount == 2 {
+            store.switchCurrentVersion(to: version.id)
+        } else {
+            store.selectVersion(version.id)
+        }
     }
 }
 

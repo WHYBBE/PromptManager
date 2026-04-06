@@ -649,7 +649,11 @@ private struct VersionHistoryPanel: View {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(prompt.versions.sorted(by: { $0.createdAt > $1.createdAt })) { version in
                         Button {
-                            store.selectVersion(version.id)
+                            if NSApp.currentEvent?.clickCount == 2 {
+                                store.switchCurrentVersion(to: version.id)
+                            } else {
+                                store.selectVersion(version.id)
+                            }
                         } label: {
                             HStack(alignment: .top) {
                                 VStack(alignment: .leading, spacing: 6) {
