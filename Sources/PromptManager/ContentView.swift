@@ -26,16 +26,15 @@ private struct PromptSidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            Label {
+                Text(store.text(.appName))
+                    .font(.title2.weight(.semibold))
+            } icon: {
+                Image(systemName: "info.circle.text.page.fill")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+            }
             HStack() {
-                Label {
-                    Text(store.text(.appName))
-                        .font(.title2.weight(.semibold))
-                } icon: {
-                    Image(systemName: "info.circle.text.page.fill")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(Color.accentColor)
-                }
-                Spacer()
                 Menu {
                     ForEach(AppLanguage.allCases) { language in
                         Button {
@@ -49,6 +48,8 @@ private struct PromptSidebar: View {
                 }
                 .fixedSize()
                 .menuStyle(.borderlessButton)
+                
+                Spacer()
 
                 Menu {
                     ForEach(AppThemeMode.allCases) { mode in
@@ -295,65 +296,56 @@ private struct PromptWorkspace: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(prompt.name)
-                        .font(.system(size: 30, weight: .bold))
+                    HStack() {
+                        Text(prompt.name)
+                            .font(.system(size: 30, weight: .bold))
+                        Spacer()
+                        HStack(spacing: 10) {
+                            Button(store.text(.evolve)) {
+                                store.evolveSelectedVersion()
+                            }
+                            .buttonStyle(.borderedProminent)
+
+                            Button(store.text(.fork)) {
+                                store.forkSelectedVersion()
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button(store.text(.deletePrompt), role: .destructive) {
+                                store.deletePrompt(prompt.id)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+
+                    HStack(spacing: 12) {
+                        Label(version.branchName, systemImage: "point.3.connected.trianglepath.dotted")
+                        Label(version.title, systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                        Text(version.createdAt.formatted(date: .abbreviated, time: .shortened))
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(.subheadline)
+                    
                     MultilineInput(title: store.text(.summary), text: $summary, minHeight: 84)
                         .frame(maxWidth: 560)
-                }
-                Spacer()
-                HStack(spacing: 10) {
-                    Button(store.text(.evolve)) {
-                        store.evolveSelectedVersion()
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Button(store.text(.fork)) {
-                        store.forkSelectedVersion()
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button(store.text(.deletePrompt), role: .destructive) {
-                        store.deletePrompt(prompt.id)
+                    
+                    Button(store.text(.saveSummary)) {
+                        store.updateSelectedPromptSummary(summary)
                     }
                     .buttonStyle(.bordered)
                 }
-            }
-
-            HStack(spacing: 12) {
-                Label(version.branchName, systemImage: "point.3.connected.trianglepath.dotted")
-                Label(version.title, systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
-                Text(version.createdAt.formatted(date: .abbreviated, time: .shortened))
-                    .foregroundStyle(.secondary)
-            }
-            .font(.subheadline)
-
-            HStack {
                 Spacer()
-                Button(store.text(.deleteCurrentVersion), role: .destructive) {
-                    store.deleteSelectedVersion()
-                }
-                .buttonStyle(.bordered)
-
-                Button(store.text(.saveSummary)) {
-                    store.updateSelectedPromptSummary(summary)
-                }
-                .buttonStyle(.bordered)
+                
             }
         }
     }
 
     private func versionEditor(version: PromptVersion) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(store.text(.versionContent))
-                .font(.title3.weight(.semibold))
-
-            TextField(store.text(.branchName), text: $branchName)
-            TextField(store.text(.versionTitle), text: $title)
-            MultilineInput(title: store.text(.promptContent), text: $content, minHeight: 220)
-            MultilineInput(title: store.text(.effectDescription), text: $effect, minHeight: 100)
-            MultilineInput(title: store.text(.notes), text: $notes, minHeight: 84)
-
             HStack {
+                Text(store.text(.versionContent))
+                    .font(.title3.weight(.semibold))
+                Spacer()
                 Button(store.text(.saveCurrentVersion)) {
                     store.renameSelectedBranch(to: branchName)
                     store.updateSelectedVersion(title: title, content: content, effectDescription: effect, notes: notes)
@@ -364,7 +356,18 @@ private struct PromptWorkspace: View {
                     store.switchCurrentVersion(to: version.id)
                 }
                 .buttonStyle(.bordered)
+
+                Button(store.text(.deleteCurrentVersion), role: .destructive) {
+                    store.deleteSelectedVersion()
+                }
+                .buttonStyle(.bordered)
             }
+
+            TextField(store.text(.branchName), text: $branchName)
+            TextField(store.text(.versionTitle), text: $title)
+            MultilineInput(title: store.text(.promptContent), text: $content, minHeight: 220)
+            MultilineInput(title: store.text(.effectDescription), text: $effect, minHeight: 100)
+            MultilineInput(title: store.text(.notes), text: $notes, minHeight: 84)
         }
         .padding(20)
         .background(
