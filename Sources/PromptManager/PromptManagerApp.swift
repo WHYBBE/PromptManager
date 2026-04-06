@@ -10,10 +10,39 @@ struct PromptManager: App {
         WindowGroup {
             ContentView()
                 .environmentObject(store)
+                .id(store.appThemeMode.rawValue)
                 .frame(minWidth: 1320, minHeight: 820)
                 .preferredColorScheme(store.appThemeMode.colorScheme)
+                .background(WindowAppearanceSync(mode: store.appThemeMode))
         }
         .windowResizability(.contentMinSize)
+    }
+}
+
+private struct WindowAppearanceSync: NSViewRepresentable {
+    let mode: AppThemeMode
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        applyAppearance()
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        applyAppearance()
+    }
+
+    private func applyAppearance() {
+        DispatchQueue.main.async {
+            let appearance = mode.nsAppearanceName.flatMap(NSAppearance.init(named:))
+            NSApp.appearance = appearance
+            for window in NSApp.windows {
+                window.appearance = appearance
+                window.contentView?.appearance = appearance
+                window.contentView?.needsDisplay = true
+                window.invalidateShadow()
+            }
+        }
     }
 }
 

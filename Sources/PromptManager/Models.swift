@@ -68,6 +68,14 @@ enum AppThemeMode: String, Codable, CaseIterable, Identifiable {
         case .dark: return .dark
         }
     }
+
+    var nsAppearanceName: NSAppearance.Name? {
+        switch self {
+        case .system: return nil
+        case .light: return .aqua
+        case .dark: return .darkAqua
+        }
+    }
 }
 
 struct PromptCategory: Identifiable, Hashable, Codable {

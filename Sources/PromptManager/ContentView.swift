@@ -8,10 +8,13 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             PromptSidebar()
+                .navigationSplitViewColumnWidth(min: 280, ideal: 320)
         } content: {
             PromptWorkspace()
+                .navigationSplitViewColumnWidth(min: 420, ideal: 530)
         } detail: {
             VersionInspectorPanel()
+                .navigationSplitViewColumnWidth(min: 420, ideal: 530)
         }
         .navigationSplitViewStyle(.balanced)
         .background(AppTheme.panelBackground)
@@ -351,7 +354,7 @@ private struct PromptWorkspace: View {
                     }
                     .padding(24)
                 }
-                .background(Color(nsColor: .windowBackgroundColor))
+                .background(AppTheme.panelBackground)
                 .onAppear {
                     apply(version: version)
                 }
@@ -365,7 +368,7 @@ private struct PromptWorkspace: View {
                     newPromptPanel
                         .padding(24)
                 }
-                .background(Color(nsColor: .windowBackgroundColor))
+                .background(AppTheme.panelBackground)
             }
         }
         .onAppear {
