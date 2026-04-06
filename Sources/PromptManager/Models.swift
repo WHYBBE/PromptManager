@@ -215,6 +215,11 @@ final class PromptStore: ObservableObject {
         return prompt.versions.first(where: { $0.id == targetID })
     }
 
+    var currentVersion: PromptVersion? {
+        guard let prompt = selectedPrompt else { return nil }
+        return prompt.versions.first(where: { $0.id == prompt.currentVersionID })
+    }
+
     var appThemeMode: AppThemeMode {
         get { AppThemeMode(rawValue: appThemeModeRawValue) ?? .system }
         set { appThemeModeRawValue = newValue.rawValue }
@@ -454,7 +459,7 @@ final class PromptStore: ObservableObject {
 
     func evolveSelectedVersion() {
         guard let promptIndex = selectedPromptIndex,
-              let current = selectedVersion else { return }
+              let current = currentVersion else { return }
 
         let siblingCount = prompts[promptIndex].versions.filter { $0.branchName == current.branchName }.count
         let next = PromptVersion(
@@ -478,7 +483,7 @@ final class PromptStore: ObservableObject {
 
     func forkSelectedVersion() {
         guard let promptIndex = selectedPromptIndex,
-              let current = selectedVersion else { return }
+              let current = currentVersion else { return }
 
         let baseName = current.branchName == "main" ? "exp" : current.branchName
         let siblingBranches = Set(prompts[promptIndex].versions.map(\.branchName))
