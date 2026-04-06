@@ -35,7 +35,7 @@ enum AppLanguage: String, Codable, CaseIterable, Identifiable {
 }
 
 enum L10nKey {
-    case appName, export, exportSelected, importAction, newPrompt, deletePrompt, importDataTitle, replaceData, mergeData, cancel, importDataMessage, importFailed, exportFailed, ok, evolve, fork, deleteCurrentVersion, saveSummary, summary, versionContent, branchName, versionTitle, promptContent, effectDescription, notes, saveCurrentVersion, switchCurrentVersion, customTypes, currentPromptType, typeName, color, addType, save, delete, inUse, createPromptTitle, createPromptHint, name, type, createPromptAction, noVisualizationData, versionGraph, historyVersions, currentInUse, language, theme, system, light, dark
+    case appName, export, exportSelected, importAction, newPrompt, deletePrompt, importDataTitle, replaceData, mergeData, cancel, importDataMessage, importFailed, exportFailed, ok, evolve, fork, deleteCurrentVersion, saveSummary, summary, versionContent, branchName, versionTitle, promptContent, effectDescription, notes, saveCurrentVersion, switchCurrentVersion, customTypes, currentPromptType, typeName, color, addType, save, delete, inUse, createPromptTitle, createPromptHint, name, type, createPromptAction, noVisualizationData, versionGraph, historyVersions, currentInUse, language, theme, system, light, dark, moveUp, moveDown
 }
 
 enum AppThemeMode: String, Codable, CaseIterable, Identifiable {
@@ -132,6 +132,7 @@ struct PromptDocument: Identifiable, Hashable, Codable {
     var currentVersionID: UUID
     var createdAt: Date
     var updatedAt: Date
+    var manualSortOrder: Int?
 
     init(
         id: UUID = UUID(),
@@ -141,7 +142,8 @@ struct PromptDocument: Identifiable, Hashable, Codable {
         versions: [PromptVersion],
         currentVersionID: UUID,
         createdAt: Date = .now,
-        updatedAt: Date = .now
+        updatedAt: Date = .now,
+        manualSortOrder: Int? = nil
     ) {
         self.id = id
         self.name = name
@@ -151,6 +153,7 @@ struct PromptDocument: Identifiable, Hashable, Codable {
         self.currentVersionID = currentVersionID
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.manualSortOrder = manualSortOrder
     }
 
     var currentVersion: PromptVersion? {
@@ -195,9 +198,10 @@ final class PromptStore: ObservableObject {
 
     init(categories: [PromptCategory], prompts: [PromptDocument]) {
         self.categories = categories
-        self.prompts = prompts.sorted { $0.updatedAt > $1.updatedAt }
-        self.selectedPromptID = prompts.first?.id
-        self.selectedVersionID = prompts.first?.currentVersionID
+        self.prompts = prompts
+        sortPrompts()
+        self.selectedPromptID = self.prompts.first?.id
+        self.selectedVersionID = self.prompts.first?.currentVersionID
     }
 
     var selectedPromptIndex: Int? {
@@ -236,7 +240,7 @@ final class PromptStore: ObservableObject {
         case (.english, .export): return "Export"
         case (.chinese, .export): return "导出"
         case (.english, .exportSelected): return "Export Selected"
-        case (.chinese, .exportSelected): return "导出当前选中"
+        case (.chinese, .exportSelected): return "导出选中"
         case (.english, .importAction): return "Import"
         case (.chinese, .importAction): return "导入"
         case (.english, .newPrompt): return "New"
@@ -329,6 +333,10 @@ final class PromptStore: ObservableObject {
         case (.chinese, .light): return "浅色"
         case (.english, .dark): return "Dark"
         case (.chinese, .dark): return "深色"
+        case (.english, .moveUp): return "Move Up"
+        case (.chinese, .moveUp): return "上移"
+        case (.english, .moveDown): return "Move Down"
+        case (.chinese, .moveDown): return "下移"
         }
     }
 
@@ -385,6 +393,14 @@ final class PromptStore: ObservableObject {
 
     func addPrompt(name: String, categoryID: UUID, summary: String, content: String = "", effectDescription: String = "") {
         let promptID = UUID()
+        let hasManualOrder = prompts.contains(where: { $0.manualSortOrder != nil })
+
+        if hasManualOrder {
+            for index in prompts.indices {
+                prompts[index].manualSortOrder = (prompts[index].manualSortOrder ?? index) + 1
+            }
+        }
+
         let initialVersion = PromptVersion(
             promptID: promptID,
             title: "v1 初稿",
@@ -402,13 +418,52 @@ final class PromptStore: ObservableObject {
             versions: [initialVersion],
             currentVersionID: initialVersion.id,
             createdAt: .now,
-            updatedAt: .now
+            updatedAt: .now,
+            manualSortOrder: hasManualOrder ? 0 : nil
         )
 
         prompts.insert(document, at: 0)
+        sortPrompts()
         selectedPromptID = document.id
         selectedVersionID = initialVersion.id
         persist()
+    }
+
+    func movePrompt(_ promptID: UUID, by offset: Int) {
+        guard let sourceIndex = prompts.firstIndex(where: { $0.id == promptID }) else { return }
+
+        let destinationIndex = sourceIndex + offset
+        guard prompts.indices.contains(destinationIndex) else { return }
+
+        var reordered = prompts
+        let movedPrompt = reordered.remove(at: sourceIndex)
+        reordered.insert(movedPrompt, at: destinationIndex)
+        applyManualOrder(to: reordered)
+        persist()
+    }
+
+    func movePrompt(_ promptID: UUID, to targetPromptID: UUID) {
+        reorderPrompt(promptID, to: targetPromptID)
+        persist()
+    }
+
+    func previewMovePrompt(_ promptID: UUID, to targetPromptID: UUID) {
+        reorderPrompt(promptID, to: targetPromptID)
+    }
+
+    func persistPromptOrder() {
+        persist()
+    }
+
+    private func reorderPrompt(_ promptID: UUID, to targetPromptID: UUID) {
+        guard promptID != targetPromptID,
+              let sourceIndex = prompts.firstIndex(where: { $0.id == promptID }),
+              let targetIndex = prompts.firstIndex(where: { $0.id == targetPromptID }) else { return }
+
+        var reordered = prompts
+        let movedPrompt = reordered.remove(at: sourceIndex)
+        reordered.insert(movedPrompt, at: targetIndex)
+        applyManualOrder(to: reordered)
     }
 
     func updateSelectedVersion(title: String, content: String, effectDescription: String, notes: String) {
@@ -636,14 +691,29 @@ final class PromptStore: ObservableObject {
     }
 
     private func sortPrompts() {
-        prompts.sort { $0.updatedAt > $1.updatedAt }
+        prompts.sort { lhs, rhs in
+            switch (lhs.manualSortOrder, rhs.manualSortOrder) {
+            case let (left?, right?):
+                return left < right
+            case (_?, nil):
+                return true
+            case (nil, _?):
+                return false
+            case (nil, nil):
+                if lhs.createdAt == rhs.createdAt {
+                    return lhs.updatedAt > rhs.updatedAt
+                }
+                return lhs.createdAt > rhs.createdAt
+            }
+        }
     }
 
     private func applyImport(_ snapshot: PromptStoreSnapshot, mode: PromptImportMode) {
         switch mode {
         case .replace:
             categories = snapshot.categories
-            prompts = snapshot.prompts.sorted { $0.updatedAt > $1.updatedAt }
+            prompts = snapshot.prompts
+            sortPrompts()
             selectedPromptID = snapshot.selectedPromptID ?? prompts.first?.id
             if let selectedPromptID,
                let prompt = prompts.first(where: { $0.id == selectedPromptID }) {
@@ -687,7 +757,8 @@ final class PromptStore: ObservableObject {
                 }
                 promptMap[prompt.id] = mergedPrompt
             }
-            prompts = Array(promptMap.values).sorted { $0.updatedAt > $1.updatedAt }
+            prompts = Array(promptMap.values)
+            sortPrompts()
 
             if let importedPromptID = snapshot.selectedPromptID,
                prompts.contains(where: { $0.id == importedPromptID }) {
@@ -710,6 +781,7 @@ final class PromptStore: ObservableObject {
     }
 
     private func persist() {
+        let saveURL = Self.saveURL
         let snapshot = PromptStoreSnapshot(
             categories: categories,
             prompts: prompts,
@@ -717,11 +789,21 @@ final class PromptStore: ObservableObject {
             selectedVersionID: selectedVersionID
         )
 
-        do {
-            let data = try JSONEncoder.promptStoreEncoder.encode(snapshot)
-            try data.write(to: Self.saveURL, options: .atomic)
-        } catch {
-            assertionFailure("Failed to persist prompt store: \(error)")
+        Task.detached(priority: .utility) {
+            do {
+                let data = try JSONEncoder.promptStoreEncoder.encode(snapshot)
+                try data.write(to: saveURL, options: .atomic)
+            } catch {
+                assertionFailure("Failed to persist prompt store: \(error)")
+            }
+        }
+    }
+
+    private func applyManualOrder(to orderedPrompts: [PromptDocument]) {
+        prompts = orderedPrompts.enumerated().map { index, prompt in
+            var next = prompt
+            next.manualSortOrder = index
+            return next
         }
     }
 }

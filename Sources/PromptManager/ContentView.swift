@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject private var store: PromptStore
@@ -23,6 +24,7 @@ private struct PromptSidebar: View {
     @State private var pendingImportURL: URL?
     @State private var importErrorMessage: String?
     @State private var exportErrorMessage: String?
+    @State private var draggedPromptID: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -92,39 +94,22 @@ private struct PromptSidebar: View {
                 .buttonStyle(.bordered)
             }
 
-            List(selection: Binding(
-                get: { store.selectedPromptID },
-                set: { id in if let id { store.selectPrompt(id) } }
-            )) {
-                ForEach(store.prompts) { prompt in
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(prompt.name)
-                                .font(.headline)
-                            Spacer()
-                            if let category = store.category(for: prompt.categoryID) {
-                                Text(category.name)
-                                    .font(.caption.weight(.medium))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(category.color.opacity(0.16), in: Capsule())
-                            }
-                        }
-                        Text(prompt.summary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                    }
-                    .padding(.vertical, 4)
-                    .tag(prompt.id)
-                    .contextMenu {
-                        Button(store.text(.deletePrompt), role: .destructive) {
-                            store.deletePrompt(prompt.id)
-                        }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(store.prompts.enumerated()), id: \.element.id) { index, prompt in
+                        promptRow(prompt, index: index)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
+                .padding(.bottom, 2)
             }
-            .frame(maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onDrop(of: [UTType.text], isTargeted: nil) { _ in
+                store.persistPromptOrder()
+                draggedPromptID = nil
+                return true
+            }
 
         }
         .padding(20)
@@ -236,6 +221,108 @@ private struct PromptSidebar: View {
             importErrorMessage = error.localizedDescription
         }
     }
+
+    private func promptRow(_ prompt: PromptDocument, index: Int) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(prompt.name)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+
+                    Text(prompt.summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 8)
+
+                if let category = store.category(for: prompt.categoryID) {
+                    Text(category.name)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(category.color)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(category.color.opacity(0.14), in: Capsule())
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(store.selectedPromptID == prompt.id ? AppTheme.selectionFill : AppTheme.inputFill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(AppTheme.separator, lineWidth: 1)
+                )
+        )
+        .shadow(color: AppTheme.shadow, radius: 8, y: 4)
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .onTapGesture {
+            draggedPromptID = nil
+            store.selectPrompt(prompt.id)
+        }
+        .opacity(draggedPromptID == prompt.id ? 0.92 : 1)
+        .onDrag {
+            draggedPromptID = prompt.id
+            return NSItemProvider(object: prompt.id.uuidString as NSString)
+        }
+        .onDrop(
+            of: [UTType.text],
+            delegate: PromptDropDelegate(
+                targetPromptID: prompt.id,
+                draggedPromptID: $draggedPromptID,
+                store: store
+            )
+        )
+        .contextMenu {
+            Button(store.text(.moveUp)) {
+                store.movePrompt(prompt.id, by: -1)
+            }
+            .disabled(index == 0)
+
+            Button(store.text(.moveDown)) {
+                store.movePrompt(prompt.id, by: 1)
+            }
+            .disabled(index == store.prompts.count - 1)
+
+            Button(store.text(.deletePrompt), role: .destructive) {
+                store.deletePrompt(prompt.id)
+            }
+        }
+    }
+}
+
+private struct PromptDropDelegate: DropDelegate {
+    let targetPromptID: UUID
+    @Binding var draggedPromptID: UUID?
+    let store: PromptStore
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: [UTType.text])
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let draggedPromptID,
+              draggedPromptID != targetPromptID else { return }
+
+        store.previewMovePrompt(draggedPromptID, to: targetPromptID)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        store.persistPromptOrder()
+        draggedPromptID = nil
+        return true
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) {}
 }
 
 private struct PromptWorkspace: View {
