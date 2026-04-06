@@ -363,8 +363,12 @@ private struct PromptWorkspace: View {
                 .buttonStyle(.bordered)
             }
 
-            TextField(store.text(.branchName), text: $branchName)
-            TextField(store.text(.versionTitle), text: $title)
+            HStack(alignment: .top, spacing: 12) {
+                compactLabeledField(title: store.text(.branchName), text: $branchName)
+                    .frame(maxWidth: 220)
+                compactLabeledField(title: store.text(.versionTitle), text: $title)
+            }
+
             MultilineInput(title: store.text(.promptContent), text: $content, minHeight: 220)
             MultilineInput(title: store.text(.effectDescription), text: $effect, minHeight: 100)
             MultilineInput(title: store.text(.notes), text: $notes, minHeight: 84)
@@ -373,6 +377,16 @@ private struct PromptWorkspace: View {
         .background(
             AppTheme.panelCard
         )
+    }
+
+    private func compactLabeledField(title: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            TextField(title, text: text)
+                .textFieldStyle(.roundedBorder)
+        }
     }
 
     private var categoryEditor: some View {
