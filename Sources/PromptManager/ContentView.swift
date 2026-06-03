@@ -38,7 +38,7 @@ private struct PromptSidebar: View {
     @State private var draggedPromptID: UUID?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Label {
                     Text(store.text(.appName))
@@ -55,7 +55,10 @@ private struct PromptSidebar: View {
                     store.isSettingsPresented = true
                 } label: {
                     Image(systemName: "gearshape")
-                        .font(.title3.weight(.semibold))
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 }
                 .buttonStyle(.borderless)
                 .help(store.text(.settings))
@@ -97,6 +100,7 @@ private struct PromptSidebar: View {
                 .padding(.top, 2)
                 .padding(.bottom, 2)
             }
+            .scrollIndicators(.hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onDrop(of: [UTType.text], isTargeted: nil) { _ in
                 store.persistPromptOrder()
@@ -105,7 +109,9 @@ private struct PromptSidebar: View {
             }
 
         }
-        .padding(20)
+        .padding(.leading, 20)
+        .padding(.trailing, 12)
+        .padding(.vertical, 20)
         .confirmationDialog(
             store.text(.importDataTitle),
             isPresented: Binding(
@@ -245,15 +251,15 @@ private struct PromptSidebar: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(store.selectedPromptID == prompt.id ? AppTheme.selectionFill : AppTheme.inputFill)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(AppTheme.separator, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(store.selectedPromptID == prompt.id ? Color.accentColor.opacity(0.45) : AppTheme.separator, lineWidth: 1)
                 )
         )
-        .shadow(color: AppTheme.shadow, radius: 8, y: 4)
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: AppTheme.shadow, radius: 2, y: 1)
+        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .onTapGesture {
             draggedPromptID = nil
             store.selectPrompt(prompt.id)
@@ -340,6 +346,7 @@ private struct PromptWorkspace: View {
                     }
                     .padding(24)
                 }
+                .scrollIndicators(.hidden)
                 .background(AppTheme.panelBackground)
                 .onAppear {
                     apply(version: version)
@@ -354,6 +361,7 @@ private struct PromptWorkspace: View {
                     newPromptPanel
                         .padding(24)
                 }
+                .scrollIndicators(.hidden)
                 .background(AppTheme.panelBackground)
             }
         }
@@ -460,7 +468,7 @@ private struct PromptWorkspace: View {
             MultilineInput(title: store.text(.effectDescription), text: $effect, minHeight: 100)
             MultilineInput(title: store.text(.notes), text: $notes, minHeight: 84)
         }
-        .padding(20)
+        .padding(18)
         .background(
             AppTheme.panelCard
         )
@@ -625,6 +633,7 @@ private struct SettingsView: View {
                 }
                 .padding(.vertical, 2)
             }
+            .appleScrollStyle()
         }
         .padding(24)
         .background(AppTheme.panelBackground)
@@ -743,15 +752,123 @@ private struct MultilineInput: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
 
-            TextEditor(text: $text)
-                .font(.body)
-                .scrollContentBackground(.hidden)
+            PlainMultilineTextView(text: $text)
                 .padding(10)
                 .frame(minHeight: minHeight)
                 .background(
                     AppTheme.inputCard
                 )
         }
+    }
+}
+
+private struct PlainMultilineTextView: NSViewRepresentable {
+    @Binding var text: String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text)
+    }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        scrollView.hasVerticalScroller = false
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.scrollerStyle = .overlay
+        scrollView.verticalScrollElasticity = .automatic
+        scrollView.horizontalScrollElasticity = .none
+
+        let textView = NSTextView()
+        textView.delegate = context.coordinator
+        textView.string = text
+        textView.drawsBackground = false
+        textView.isRichText = false
+        textView.allowsUndo = true
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.font = .systemFont(ofSize: NSFont.systemFontSize)
+        textView.textColor = .labelColor
+        textView.insertionPointColor = .controlAccentColor
+        textView.textContainerInset = NSSize(width: 0, height: 0)
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.heightTracksTextView = false
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+
+        scrollView.documentView = textView
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+        if textView.string != text {
+            textView.string = text
+        }
+        textView.font = .systemFont(ofSize: NSFont.systemFontSize)
+        textView.textColor = .labelColor
+        textView.insertionPointColor = .controlAccentColor
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        @Binding private var text: String
+
+        init(text: Binding<String>) {
+            _text = text
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            text = textView.string
+        }
+    }
+}
+
+private struct AppleScrollStyle: NSViewRepresentable {
+    let scrollerStyle: NSScroller.Style
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        DispatchQueue.main.async {
+            tuneScrollViews(in: view)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            tuneScrollViews(in: nsView)
+        }
+    }
+
+    private func tuneScrollViews(in view: NSView) {
+        var current: NSView? = view
+        while let parent = current?.superview {
+            if let scrollView = parent as? NSScrollView {
+                scrollView.scrollerStyle = scrollerStyle
+                scrollView.autohidesScrollers = scrollerStyle == .overlay
+                scrollView.drawsBackground = false
+                scrollView.verticalScrollElasticity = .automatic
+                scrollView.horizontalScrollElasticity = .automatic
+                scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+                scrollView.scrollerInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+                return
+            }
+            current = parent
+        }
+    }
+}
+
+private extension View {
+    func appleScrollStyle(_ scrollerStyle: NSScroller.Style = .overlay) -> some View {
+        self
+            .scrollIndicators(.automatic)
+            .background(AppleScrollStyle(scrollerStyle: scrollerStyle))
     }
 }
 
@@ -770,6 +887,7 @@ private struct VersionGraphSection: View {
                 VersionGraphView(prompt: prompt)
                     .padding(5)
             }
+            .appleScrollStyle()
         }
         .background(AppTheme.panelSurface)
     }
@@ -822,16 +940,16 @@ private struct VersionHistoryPanel: View {
                                 }
                                 .font(.caption)
                             }
-                            .padding(14)
+                            .padding(12)
                             .background(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .fill(store.selectedVersionID == version.id ? AppTheme.selectionFill : AppTheme.inputFill)
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                            .stroke(AppTheme.separator, lineWidth: 1)
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .stroke(store.selectedVersionID == version.id ? Color.accentColor.opacity(0.45) : AppTheme.separator, lineWidth: 1)
                                     )
                             )
-                            .shadow(color: AppTheme.shadow, radius: 8, y: 4)
+                            .shadow(color: AppTheme.shadow, radius: 2, y: 1)
                         }
                         .buttonStyle(.plain)
                     }
@@ -839,43 +957,36 @@ private struct VersionHistoryPanel: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, 18)
             }
+            .appleScrollStyle()
         }
         .background(AppTheme.panelSurface)
     }
 }
 
 private enum AppTheme {
-    static let panelBackground = LinearGradient(
-        colors: [
-            Color(light: Color(red: 0.97, green: 0.98, blue: 1.0), dark: Color(red: 0.10, green: 0.11, blue: 0.13)),
-            Color(light: Color(red: 0.92, green: 0.96, blue: 1.0), dark: Color(red: 0.12, green: 0.14, blue: 0.18))
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-
-    static let panelSurface = Color(light: Color(red: 0.95, green: 0.97, blue: 1.0), dark: Color(red: 0.13, green: 0.15, blue: 0.19))
-    static let inputFill = Color(light: .white, dark: Color(red: 0.16, green: 0.18, blue: 0.22))
-    static let selectionFill = Color(light: Color(red: 0.84, green: 0.92, blue: 1.0), dark: Color(red: 0.18, green: 0.29, blue: 0.42))
-    static let separator = Color(light: Color(red: 0.82, green: 0.88, blue: 0.95), dark: Color(red: 0.28, green: 0.32, blue: 0.38))
-    static let secondaryText = Color(light: Color(red: 0.35, green: 0.43, blue: 0.53), dark: Color(red: 0.72, green: 0.76, blue: 0.82))
-    static let tertiaryText = Color(light: Color(red: 0.45, green: 0.53, blue: 0.62), dark: Color(red: 0.58, green: 0.63, blue: 0.70))
-    static let shadow = Color(light: Color(red: 0.80, green: 0.87, blue: 0.95).opacity(0.32), dark: Color.black.opacity(0.28))
+    static let panelBackground = Color(nsColor: .windowBackgroundColor)
+    static let panelSurface = Color(nsColor: .controlBackgroundColor)
+    static let inputFill = Color(nsColor: .textBackgroundColor)
+    static let selectionFill = Color.accentColor.opacity(0.13)
+    static let separator = Color(nsColor: .separatorColor).opacity(0.72)
+    static let secondaryText = Color.secondary
+    static let tertiaryText = Color.secondary.opacity(0.75)
+    static let shadow = Color.black.opacity(0.08)
 
     static var panelCard: some View {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(Color.primary.opacity(0.06))
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(Color(nsColor: .controlBackgroundColor))
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(separator.opacity(0.65), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(separator, lineWidth: 1)
             )
     }
 
     static var inputCard: some View {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
             .fill(inputFill)
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(separator, lineWidth: 1)
             )
     }

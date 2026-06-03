@@ -26,13 +26,13 @@ struct VersionGraphView: View {
                     SmoothEdge(from: from, to: to)
                         .stroke(
                             LinearGradient(
-                                colors: [Color(light: Color(red: 0.67, green: 0.79, blue: 0.95), dark: Color(red: 0.35, green: 0.58, blue: 0.83)), Color(light: Color(red: 0.33, green: 0.61, blue: 0.91), dark: Color(red: 0.23, green: 0.44, blue: 0.74))],
+                                colors: [Color.accentColor.opacity(0.45), Color.accentColor.opacity(0.75)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             ),
-                            style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                            style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
                         )
-                        .shadow(color: Color(light: Color(red: 0.57, green: 0.73, blue: 0.92).opacity(0.25), dark: Color.black.opacity(0.24)), radius: 6)
+                        .shadow(color: Color.black.opacity(0.06), radius: 2, y: 1)
                 }
             }
 
@@ -62,13 +62,13 @@ struct VersionGraphView: View {
                 var path = Path()
                 path.move(to: CGPoint(x: x, y: 0))
                 path.addLine(to: CGPoint(x: x, y: size.height))
-                context.stroke(path, with: .color(Color(light: Color(red: 0.83, green: 0.89, blue: 0.96), dark: Color(red: 0.24, green: 0.27, blue: 0.33))), lineWidth: 1)
+                context.stroke(path, with: .color(Color(nsColor: .separatorColor).opacity(0.22)), lineWidth: 1)
             }
             for y in stride(from: 0, through: size.height, by: spacing) {
                 var path = Path()
                 path.move(to: CGPoint(x: 0, y: y))
                 path.addLine(to: CGPoint(x: size.width, y: y))
-                context.stroke(path, with: .color(Color(light: Color(red: 0.83, green: 0.89, blue: 0.96), dark: Color(red: 0.24, green: 0.27, blue: 0.33))), lineWidth: 1)
+                context.stroke(path, with: .color(Color(nsColor: .separatorColor).opacity(0.22)), lineWidth: 1)
             }
         }
     }
@@ -100,13 +100,13 @@ private struct VersionNodeCard: View {
                     Spacer()
                     if isCurrent {
                         Circle()
-                            .fill(Color(light: Color(red: 0.16, green: 0.72, blue: 0.44), dark: Color(red: 0.24, green: 0.78, blue: 0.52)))
+                            .fill(Color.green)
                             .frame(width: 10, height: 10)
                     }
                 }
                 Text(version.branchName)
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(Color(light: Color(red: 0.20, green: 0.52, blue: 0.86), dark: Color(red: 0.51, green: 0.73, blue: 0.96)))
+                    .foregroundStyle(Color.accentColor)
                 Text(version.effectDescription)
                     .font(.caption)
                     .foregroundStyle(Color.secondary)
@@ -115,14 +115,14 @@ private struct VersionNodeCard: View {
             .padding(14)
             .frame(width: size.width, height: size.height, alignment: .topLeading)
             .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(isSelected ? Color(light: Color(red: 0.85, green: 0.92, blue: 1.0), dark: Color(red: 0.18, green: 0.29, blue: 0.42)) : Color(light: .white, dark: Color(red: 0.16, green: 0.18, blue: 0.22)))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(isSelected ? Color.accentColor.opacity(0.13) : Color(nsColor: .textBackgroundColor))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(isCurrent ? Color(light: Color(red: 0.34, green: 0.62, blue: 0.92), dark: Color(red: 0.49, green: 0.71, blue: 0.95)) : Color(light: Color(red: 0.81, green: 0.88, blue: 0.95), dark: Color(red: 0.28, green: 0.32, blue: 0.38)), lineWidth: isCurrent ? 2 : 1)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(isCurrent ? Color.accentColor.opacity(0.75) : Color(nsColor: .separatorColor).opacity(0.72), lineWidth: isCurrent ? 1.5 : 1)
                     )
             )
-            .shadow(color: Color(light: Color(red: 0.77, green: 0.85, blue: 0.94).opacity(0.32), dark: Color.black.opacity(0.28)), radius: 12, y: 8)
+            .shadow(color: Color.black.opacity(0.08), radius: 2, y: 1)
         }
         .buttonStyle(GraphNodeButtonStyle())
         .position(position)
