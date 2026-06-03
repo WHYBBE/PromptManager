@@ -4,13 +4,16 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject private var store: PromptStore
+    @State private var pendingImportURL: URL?
+    @State private var importErrorMessage: String?
+    @State private var exportErrorMessage: String?
 
     var body: some View {
         NavigationSplitView {
-            PromptSidebar()
+            PromptSidebar(exportPrompt: exportPrompt)
                 .navigationSplitViewColumnWidth(min: 280, ideal: 320)
         } content: {
-            PromptWorkspace()
+            PromptWorkspace(exportPrompt: exportPrompt)
                 .navigationSplitViewColumnWidth(min: 420, ideal: 530)
         } detail: {
             VersionInspectorPanel()
@@ -23,95 +26,13 @@ struct ContentView: View {
             get: { store.isSettingsPresented },
             set: { store.isSettingsPresented = $0 }
         )) {
-            SettingsView()
+            SettingsView(
+                exportAllData: exportAllData,
+                chooseImportFile: chooseImportFile
+            )
                 .environmentObject(store)
                 .frame(minWidth: 620, minHeight: 520)
         }
-    }
-}
-
-private struct PromptSidebar: View {
-    @EnvironmentObject private var store: PromptStore
-    @State private var pendingImportURL: URL?
-    @State private var importErrorMessage: String?
-    @State private var exportErrorMessage: String?
-    @State private var draggedPromptID: UUID?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Label {
-                    Text(store.text(.appName))
-                        .font(.title2.weight(.semibold))
-                } icon: {
-                    Image(systemName: "info.circle.text.page.fill")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(Color.accentColor)
-                }
-
-                Spacer()
-
-                Button {
-                    store.isSettingsPresented = true
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 28)
-                        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                }
-                .buttonStyle(.borderless)
-                .help(store.text(.settings))
-            }
-
-            HStack {
-                Button(store.text(.export)) {
-                    exportAllData()
-                }
-                .buttonStyle(.bordered)
-
-                Button(store.text(.exportSelected)) {
-                    exportSelectedPrompt()
-                }
-                .buttonStyle(.bordered)
-                .disabled(store.selectedPrompt == nil)
-
-                Button(store.text(.importAction)) {
-                    chooseImportFile()
-                }
-                .buttonStyle(.borderedProminent)
-                
-                Spacer()
-
-                Button(store.text(.newPrompt)) {
-                    store.selectedPromptID = nil
-                    store.selectedVersionID = nil
-                }
-                .buttonStyle(.bordered)
-            }
-
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(Array(store.prompts.enumerated()), id: \.element.id) { index, prompt in
-                        promptRow(prompt, index: index)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 2)
-                .padding(.bottom, 2)
-            }
-            .scrollIndicators(.hidden)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onDrop(of: [UTType.text], isTargeted: nil) { _ in
-                store.persistPromptOrder()
-                draggedPromptID = nil
-                return true
-            }
-
-        }
-        .padding(.leading, 20)
-        .padding(.trailing, 12)
-        .padding(.vertical, 20)
         .confirmationDialog(
             store.text(.importDataTitle),
             isPresented: Binding(
@@ -171,18 +92,16 @@ private struct PromptSidebar: View {
         }
     }
 
-    private func exportSelectedPrompt() {
-        guard let selectedPrompt = store.selectedPrompt else { return }
-
+    private func exportPrompt(_ prompt: PromptDocument) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = defaultSelectedExportName(for: selectedPrompt.name)
+        panel.nameFieldStringValue = defaultSelectedExportName(for: prompt.name)
         panel.canCreateDirectories = true
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         do {
-            try store.exportSelectedPrompt(to: url)
+            try store.exportPrompt(prompt.id, to: url)
         } catch {
             exportErrorMessage = error.localizedDescription
         }
@@ -207,6 +126,7 @@ private struct PromptSidebar: View {
         panel.allowsMultipleSelection = false
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        store.isSettingsPresented = false
         pendingImportURL = url
     }
 
@@ -219,6 +139,76 @@ private struct PromptSidebar: View {
             pendingImportURL = nil
             importErrorMessage = error.localizedDescription
         }
+    }
+}
+
+private struct PromptSidebar: View {
+    @EnvironmentObject private var store: PromptStore
+    @State private var draggedPromptID: UUID?
+    let exportPrompt: (PromptDocument) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label {
+                    Text(store.text(.appName))
+                        .font(.title2.weight(.semibold))
+                } icon: {
+                    Image(systemName: "info.circle.text.page.fill")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                }
+
+                Spacer()
+
+                Button {
+                    store.selectedPromptID = nil
+                    store.selectedVersionID = nil
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+                .buttonStyle(.borderless)
+                .help(store.text(.newPrompt))
+
+                Button {
+                    store.isSettingsPresented = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+                .buttonStyle(.borderless)
+                .help(store.text(.settings))
+            }
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(store.prompts.enumerated()), id: \.element.id) { index, prompt in
+                        promptRow(prompt, index: index)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
+                .padding(.bottom, 2)
+            }
+            .scrollIndicators(.hidden)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onDrop(of: [UTType.text], isTargeted: nil) { _ in
+                store.persistPromptOrder()
+                draggedPromptID = nil
+                return true
+            }
+
+        }
+        .padding(.leading, 20)
+        .padding(.trailing, 12)
+        .padding(.vertical, 20)
     }
 
     private func promptRow(_ prompt: PromptDocument, index: Int) -> some View {
@@ -278,6 +268,10 @@ private struct PromptSidebar: View {
             )
         )
         .contextMenu {
+            Button(store.text(.exportSelected)) {
+                exportPrompt(prompt)
+            }
+
             Button(store.text(.moveUp)) {
                 store.movePrompt(prompt.id, by: -1)
             }
@@ -326,6 +320,7 @@ private struct PromptDropDelegate: DropDelegate {
 
 private struct PromptWorkspace: View {
     @EnvironmentObject private var store: PromptStore
+    let exportPrompt: (PromptDocument) -> Void
     @State private var summary = ""
     @State private var branchName = ""
     @State private var title = ""
@@ -395,10 +390,19 @@ private struct PromptWorkspace: View {
                             }
                             .buttonStyle(.bordered)
 
-                            Button(store.text(.deletePrompt), role: .destructive) {
-                                store.deletePrompt(prompt.id)
+                            Menu {
+                                Button(store.text(.exportSelected)) {
+                                    exportPrompt(prompt)
+                                }
+
+                                Button(store.text(.deletePrompt), role: .destructive) {
+                                    store.deletePrompt(prompt.id)
+                                }
+                            } label: {
+                                Label(store.text(.moreActions), systemImage: "ellipsis.circle")
                             }
-                            .buttonStyle(.bordered)
+                            .menuStyle(.borderlessButton)
+                            .fixedSize()
                         }
                     }
 
@@ -555,6 +559,9 @@ private struct SettingsView: View {
     @State private var draftCategoryName = ""
     @State private var draftCategoryColor = "F97316"
     @State private var categoryDrafts: [UUID: EditableCategory] = [:]
+    @State private var isClearDataConfirmationPresented = false
+    let exportAllData: () -> Void
+    let chooseImportFile: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -601,6 +608,31 @@ private struct SettingsView: View {
             .padding(16)
             .background(AppTheme.inputCard)
 
+            VStack(alignment: .leading, spacing: 12) {
+                Text(store.text(.dataManagement))
+                    .font(.headline)
+                HStack {
+                    Button(store.text(.export)) {
+                        exportAllData()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button(store.text(.importAction)) {
+                        chooseImportFile()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Spacer()
+
+                    Button(store.text(.clearData), role: .destructive) {
+                        isClearDataConfirmationPresented = true
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .padding(16)
+            .background(AppTheme.inputCard)
+
             Text(store.text(.customTypes))
                 .font(.headline)
 
@@ -642,6 +674,19 @@ private struct SettingsView: View {
         }
         .onChange(of: store.categories) { _, _ in
             syncCategoryDrafts()
+        }
+        .confirmationDialog(
+            store.text(.clearDataTitle),
+            isPresented: $isClearDataConfirmationPresented,
+            titleVisibility: .visible
+        ) {
+            Button(store.text(.clearDataConfirm), role: .destructive) {
+                store.clearData()
+                dismiss()
+            }
+            Button(store.text(.cancel), role: .cancel) {}
+        } message: {
+            Text(store.text(.clearDataMessage))
         }
     }
 

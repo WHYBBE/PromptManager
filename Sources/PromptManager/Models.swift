@@ -35,7 +35,7 @@ enum AppLanguage: String, Codable, CaseIterable, Identifiable {
 }
 
 enum L10nKey {
-    case appName, settings, export, exportSelected, importAction, newPrompt, deletePrompt, importDataTitle, replaceData, mergeData, cancel, importDataMessage, importFailed, exportFailed, ok, evolve, fork, deleteCurrentVersion, saveSummary, summary, versionContent, branchName, versionTitle, promptContent, effectDescription, notes, saveCurrentVersion, switchCurrentVersion, customTypes, currentPromptType, typeName, color, addType, save, delete, inUse, createPromptTitle, createPromptHint, name, type, createPromptAction, noVisualizationData, versionGraph, historyVersions, currentInUse, language, theme, system, light, dark, moveUp, moveDown
+    case appName, settings, dataManagement, export, exportSelected, importAction, clearData, clearDataTitle, clearDataMessage, clearDataConfirm, moreActions, newPrompt, deletePrompt, importDataTitle, replaceData, mergeData, cancel, importDataMessage, importFailed, exportFailed, ok, evolve, fork, deleteCurrentVersion, saveSummary, summary, versionContent, branchName, versionTitle, promptContent, effectDescription, notes, saveCurrentVersion, switchCurrentVersion, customTypes, currentPromptType, typeName, color, addType, save, delete, inUse, createPromptTitle, createPromptHint, name, type, createPromptAction, noVisualizationData, versionGraph, historyVersions, currentInUse, language, theme, system, light, dark, moveUp, moveDown
 }
 
 enum AppThemeMode: String, Codable, CaseIterable, Identifiable {
@@ -254,12 +254,24 @@ final class PromptStore: ObservableObject {
         case (_, .appName): return "Prompt Manager"
         case (.english, .settings): return "Settings"
         case (.chinese, .settings): return "设置"
+        case (.english, .dataManagement): return "Data"
+        case (.chinese, .dataManagement): return "数据"
         case (.english, .export): return "Export"
         case (.chinese, .export): return "导出"
         case (.english, .exportSelected): return "Export Selected"
         case (.chinese, .exportSelected): return "导出选中"
         case (.english, .importAction): return "Import"
         case (.chinese, .importAction): return "导入"
+        case (.english, .clearData): return "Clear Data"
+        case (.chinese, .clearData): return "清空数据"
+        case (.english, .clearDataTitle): return "Clear All Data?"
+        case (.chinese, .clearDataTitle): return "清空所有数据？"
+        case (.english, .clearDataMessage): return "This will delete all prompts, versions, and custom types, then restore the default type. This action cannot be undone."
+        case (.chinese, .clearDataMessage): return "这会删除所有提示词、版本和自定义类型，并恢复一个默认类型。此操作无法撤销。"
+        case (.english, .clearDataConfirm): return "Clear All Data"
+        case (.chinese, .clearDataConfirm): return "确认清空"
+        case (.english, .moreActions): return "More"
+        case (.chinese, .moreActions): return "更多"
         case (.english, .newPrompt): return "New"
         case (.chinese, .newPrompt): return "新建"
         case (.english, .deletePrompt): return "Delete Prompt"
@@ -395,6 +407,14 @@ final class PromptStore: ObservableObject {
               let categoryIndex = categories.firstIndex(where: { $0.id == id }) else { return }
 
         categories.remove(at: categoryIndex)
+        persist()
+    }
+
+    func clearData() {
+        categories = [PromptCategory(name: appLanguage == .english ? "General" : "默认", colorHex: "5B8CFF")]
+        prompts = []
+        selectedPromptID = nil
+        selectedVersionID = nil
         persist()
     }
 
@@ -650,24 +670,33 @@ final class PromptStore: ObservableObject {
             throw CocoaError(.fileNoSuchFile)
         }
 
+        try exportPrompt(selectedPrompt.id, to: url)
+    }
+
+    func exportPrompt(_ promptID: UUID, to url: URL) throws {
+        guard let prompt = prompts.first(where: { $0.id == promptID }) else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+
         let exportedCategories: [PromptCategory]
-        if let category = category(for: selectedPrompt.categoryID) {
+        if let category = category(for: prompt.categoryID) {
             exportedCategories = [category]
         } else {
             exportedCategories = []
         }
 
         let exportedSelectedVersionID: UUID?
-        if selectedPrompt.versions.contains(where: { $0.id == selectedVersionID }) {
+        if prompt.id == selectedPromptID,
+           prompt.versions.contains(where: { $0.id == selectedVersionID }) {
             exportedSelectedVersionID = selectedVersionID
         } else {
-            exportedSelectedVersionID = selectedPrompt.currentVersionID
+            exportedSelectedVersionID = prompt.currentVersionID
         }
 
         let snapshot = PromptStoreSnapshot(
             categories: exportedCategories,
-            prompts: [selectedPrompt],
-            selectedPromptID: selectedPrompt.id,
+            prompts: [prompt],
+            selectedPromptID: prompt.id,
             selectedVersionID: exportedSelectedVersionID
         )
 
