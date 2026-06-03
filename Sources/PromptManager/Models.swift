@@ -35,7 +35,7 @@ enum AppLanguage: String, Codable, CaseIterable, Identifiable {
 }
 
 enum L10nKey {
-    case appName, settings, dataManagement, export, exportSelected, importAction, clearData, clearDataTitle, clearDataMessage, clearDataConfirm, moreActions, newPrompt, deletePrompt, importDataTitle, replaceData, mergeData, cancel, importDataMessage, importFailed, exportFailed, ok, evolve, fork, deleteCurrentVersion, saveSummary, summary, versionContent, branchName, versionTitle, promptContent, effectDescription, notes, saveCurrentVersion, switchCurrentVersion, customTypes, currentPromptType, typeName, color, addType, save, delete, inUse, createPromptTitle, createPromptHint, name, type, createPromptAction, noVisualizationData, versionGraph, historyVersions, currentInUse, language, theme, system, light, dark, moveUp, moveDown
+    case appName, settings, dataManagement, export, exportSelected, importAction, clearData, clearDataTitle, clearDataMessage, clearDataConfirm, moreActions, searchPrompts, sort, sortByTime, customSort, sortAlphabetically, groupByType, noPrompts, newPrompt, deletePrompt, importDataTitle, replaceData, mergeData, cancel, importDataMessage, importFailed, exportFailed, ok, evolve, fork, deleteCurrentVersion, saveSummary, summary, versionContent, branchName, versionTitle, promptContent, effectDescription, notes, saveCurrentVersion, switchCurrentVersion, customTypes, currentPromptType, typeName, color, addType, save, delete, inUse, createPromptTitle, createPromptHint, name, type, createPromptAction, noVisualizationData, versionGraph, historyVersions, currentInUse, language, theme, system, light, dark, moveUp, moveDown
 }
 
 enum AppThemeMode: String, Codable, CaseIterable, Identifiable {
@@ -272,6 +272,20 @@ final class PromptStore: ObservableObject {
         case (.chinese, .clearDataConfirm): return "确认清空"
         case (.english, .moreActions): return "More"
         case (.chinese, .moreActions): return "更多"
+        case (.english, .searchPrompts): return "Search Prompts"
+        case (.chinese, .searchPrompts): return "搜索提示词"
+        case (.english, .sort): return "Sort"
+        case (.chinese, .sort): return "排序"
+        case (.english, .sortByTime): return "Time"
+        case (.chinese, .sortByTime): return "时间"
+        case (.english, .customSort): return "Custom"
+        case (.chinese, .customSort): return "自定义"
+        case (.english, .sortAlphabetically): return "A-Z"
+        case (.chinese, .sortAlphabetically): return "首字母"
+        case (.english, .groupByType): return "Group by Type"
+        case (.chinese, .groupByType): return "按类型分组"
+        case (.english, .noPrompts): return "No Prompts"
+        case (.chinese, .noPrompts): return "没有提示词"
         case (.english, .newPrompt): return "New"
         case (.chinese, .newPrompt): return "新建"
         case (.english, .deletePrompt): return "Delete Prompt"

@@ -145,7 +145,47 @@ struct ContentView: View {
 private struct PromptSidebar: View {
     @EnvironmentObject private var store: PromptStore
     @State private var draggedPromptID: UUID?
+    @State private var searchText = ""
+    @AppStorage("sidebarSortMode") private var sortModeRawValue = PromptSortMode.custom.rawValue
+    @AppStorage("sidebarIsGroupedByType") private var isGroupedByType = false
     let exportPrompt: (PromptDocument) -> Void
+
+    private var sortMode: PromptSortMode {
+        get { PromptSortMode(rawValue: sortModeRawValue) ?? .custom }
+        nonmutating set { sortModeRawValue = newValue.rawValue }
+    }
+
+    private var canCustomizeOrder: Bool {
+        sortMode == .custom && !isGroupedByType && searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var filteredPrompts: [PromptDocument] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let source: [PromptDocument]
+        if query.isEmpty {
+            source = store.prompts
+        } else {
+            source = store.prompts.filter { prompt in
+                prompt.name.localizedCaseInsensitiveContains(query)
+                    || prompt.summary.localizedCaseInsensitiveContains(query)
+                    || store.category(for: prompt.categoryID)?.name.localizedCaseInsensitiveContains(query) == true
+                    || prompt.versions.contains { version in
+                        version.title.localizedCaseInsensitiveContains(query)
+                            || version.content.localizedCaseInsensitiveContains(query)
+                            || version.effectDescription.localizedCaseInsensitiveContains(query)
+                    }
+            }
+        }
+
+        return sortedPrompts(source)
+    }
+
+    private var groupedPrompts: [PromptGroup] {
+        store.categories.compactMap { category in
+            let prompts = filteredPrompts.filter { $0.categoryID == category.id }
+            return prompts.isEmpty ? nil : PromptGroup(category: category, prompts: prompts)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -187,19 +227,69 @@ private struct PromptSidebar: View {
                 .help(store.text(.settings))
             }
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(Array(store.prompts.enumerated()), id: \.element.id) { index, prompt in
-                        promptRow(prompt, index: index)
+            TextField(store.text(.searchPrompts), text: $searchText)
+                .textFieldStyle(.roundedBorder)
+
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(PromptSortMode.allCases) { mode in
+                        Button {
+                            sortMode = mode
+                        } label: {
+                            Label(mode.title(in: store), systemImage: sortMode == mode ? "checkmark" : mode.symbolName)
+                        }
                     }
+                } label: {
+                    Label(sortMode.title(in: store), systemImage: sortMode.symbolName)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 2)
-                .padding(.bottom, 2)
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+
+                Spacer()
+
+                Toggle(isOn: $isGroupedByType) {
+                    Text(store.text(.groupByType))
+                }
+                .toggleStyle(.checkbox)
+            }
+
+            ScrollView {
+                if filteredPrompts.isEmpty {
+                    ContentUnavailableView(store.text(.noPrompts), systemImage: "tray")
+                        .frame(maxWidth: .infinity, minHeight: 180)
+                } else if isGroupedByType {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        ForEach(groupedPrompts) { group in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(group.category.name)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 4)
+
+                                ForEach(group.prompts) { prompt in
+                                    promptRow(prompt, index: nil)
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 2)
+                    .padding(.bottom, 2)
+                } else {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(Array(filteredPrompts.enumerated()), id: \.element.id) { index, prompt in
+                            promptRow(prompt, index: canCustomizeOrder ? index : nil)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 2)
+                    .padding(.bottom, 2)
+                }
             }
             .scrollIndicators(.hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onDrop(of: [UTType.text], isTargeted: nil) { _ in
+                guard canCustomizeOrder else { return false }
                 store.persistPromptOrder()
                 draggedPromptID = nil
                 return true
@@ -212,8 +302,10 @@ private struct PromptSidebar: View {
         .padding(.bottom, 20)
     }
 
-    private func promptRow(_ prompt: PromptDocument, index: Int) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private func promptRow(_ prompt: PromptDocument, index: Int?) -> some View {
+        let canReorder = index != nil
+
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(prompt.name)
@@ -257,6 +349,7 @@ private struct PromptSidebar: View {
         }
         .opacity(draggedPromptID == prompt.id ? 0.92 : 1)
         .onDrag {
+            guard canReorder else { return NSItemProvider() }
             draggedPromptID = prompt.id
             return NSItemProvider(object: prompt.id.uuidString as NSString)
         }
@@ -265,7 +358,8 @@ private struct PromptSidebar: View {
             delegate: PromptDropDelegate(
                 targetPromptID: prompt.id,
                 draggedPromptID: $draggedPromptID,
-                store: store
+                store: store,
+                canReorder: canReorder
             )
         )
         .contextMenu {
@@ -276,30 +370,78 @@ private struct PromptSidebar: View {
             Button(store.text(.moveUp)) {
                 store.movePrompt(prompt.id, by: -1)
             }
-            .disabled(index == 0)
+            .disabled(index == nil || index == 0)
 
             Button(store.text(.moveDown)) {
                 store.movePrompt(prompt.id, by: 1)
             }
-            .disabled(index == store.prompts.count - 1)
+            .disabled(index == nil || index == filteredPrompts.count - 1)
 
             Button(store.text(.deletePrompt), role: .destructive) {
                 store.deletePrompt(prompt.id)
             }
         }
     }
+
+    private func sortedPrompts(_ prompts: [PromptDocument]) -> [PromptDocument] {
+        switch sortMode {
+        case .custom:
+            return prompts
+        case .time:
+            return prompts.sorted {
+                if $0.updatedAt == $1.updatedAt { return $0.createdAt > $1.createdAt }
+                return $0.updatedAt > $1.updatedAt
+            }
+        case .alphabetical:
+            return prompts.sorted {
+                $0.name.localizedStandardCompare($1.name) == .orderedAscending
+            }
+        }
+    }
+}
+
+private enum PromptSortMode: String, CaseIterable, Identifiable {
+    case time
+    case custom
+    case alphabetical
+
+    var id: String { rawValue }
+
+    var symbolName: String {
+        switch self {
+        case .time: return "clock"
+        case .custom: return "line.3.horizontal.decrease"
+        case .alphabetical: return "textformat.abc"
+        }
+    }
+
+    @MainActor func title(in store: PromptStore) -> String {
+        switch self {
+        case .time: return store.text(.sortByTime)
+        case .custom: return store.text(.customSort)
+        case .alphabetical: return store.text(.sortAlphabetically)
+        }
+    }
+}
+
+private struct PromptGroup: Identifiable {
+    var id: UUID { category.id }
+    let category: PromptCategory
+    let prompts: [PromptDocument]
 }
 
 private struct PromptDropDelegate: DropDelegate {
     let targetPromptID: UUID
     @Binding var draggedPromptID: UUID?
     let store: PromptStore
+    let canReorder: Bool
 
     func validateDrop(info: DropInfo) -> Bool {
-        info.hasItemsConforming(to: [UTType.text])
+        canReorder && info.hasItemsConforming(to: [UTType.text])
     }
 
     func dropEntered(info: DropInfo) {
+        guard canReorder else { return }
         guard let draggedPromptID,
               draggedPromptID != targetPromptID else { return }
 
@@ -307,6 +449,7 @@ private struct PromptDropDelegate: DropDelegate {
     }
 
     func performDrop(info: DropInfo) -> Bool {
+        guard canReorder else { return false }
         store.persistPromptOrder()
         draggedPromptID = nil
         return true
