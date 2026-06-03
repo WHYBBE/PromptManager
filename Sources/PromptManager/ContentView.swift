@@ -208,7 +208,8 @@ private struct PromptSidebar: View {
         }
         .padding(.leading, 20)
         .padding(.trailing, 12)
-        .padding(.vertical, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 20)
     }
 
     private func promptRow(_ prompt: PromptDocument, index: Int) -> some View {
