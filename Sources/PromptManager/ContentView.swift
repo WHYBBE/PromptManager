@@ -19,6 +19,14 @@ struct ContentView: View {
         .navigationSplitViewStyle(.balanced)
         .background(AppTheme.panelBackground)
         .navigationTitle(store.text(.appName))
+        .sheet(isPresented: Binding(
+            get: { store.isSettingsPresented },
+            set: { store.isSettingsPresented = $0 }
+        )) {
+            SettingsView()
+                .environmentObject(store)
+                .frame(minWidth: 620, minHeight: 520)
+        }
     }
 }
 
@@ -31,44 +39,26 @@ private struct PromptSidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label {
-                Text(store.text(.appName))
-                    .font(.title2.weight(.semibold))
-            } icon: {
-                Image(systemName: "info.circle.text.page.fill")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
-            }
-            HStack() {
-                Menu {
-                    ForEach(AppLanguage.allCases) { language in
-                        Button {
-                            store.appLanguage = language
-                        } label: {
-                            Label(language.title, systemImage: language.symbolName)
-                        }
-                    }
-                } label: {
-                    Label(store.text(.language), systemImage: store.appLanguage.symbolName)
+            HStack {
+                Label {
+                    Text(store.text(.appName))
+                        .font(.title2.weight(.semibold))
+                } icon: {
+                    Image(systemName: "info.circle.text.page.fill")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
                 }
-                .fixedSize()
-                .menuStyle(.borderlessButton)
-                
+
                 Spacer()
 
-                Menu {
-                    ForEach(AppThemeMode.allCases) { mode in
-                        Button {
-                            store.appThemeMode = mode
-                        } label: {
-                            Label(mode.title(for: store.appLanguage), systemImage: mode.symbolName)
-                        }
-                    }
+                Button {
+                    store.isSettingsPresented = true
                 } label: {
-                    Label(store.text(.theme), systemImage: store.appThemeMode.symbolName)
+                    Image(systemName: "gearshape")
+                        .font(.title3.weight(.semibold))
                 }
-                .fixedSize()
-                .menuStyle(.borderlessButton)
+                .buttonStyle(.borderless)
+                .help(store.text(.settings))
             }
 
             HStack {
@@ -336,9 +326,6 @@ private struct PromptWorkspace: View {
     @State private var content = ""
     @State private var effect = ""
     @State private var notes = ""
-    @State private var draftCategoryName = ""
-    @State private var draftCategoryColor = "F97316"
-    @State private var categoryDrafts: [UUID: EditableCategory] = [:]
     @State private var newPromptName = ""
     @State private var newPromptSummary = ""
     @State private var newPromptCategoryID: UUID?
@@ -350,7 +337,6 @@ private struct PromptWorkspace: View {
                     VStack(alignment: .leading, spacing: 24) {
                         header(prompt: prompt, version: version)
                         versionEditor(version: version)
-                        categoryEditor
                     }
                     .padding(24)
                 }
@@ -415,7 +401,18 @@ private struct PromptWorkspace: View {
                             .foregroundStyle(.secondary)
                     }
                     .font(.subheadline)
-                    
+
+                    Picker(store.text(.currentPromptType), selection: Binding(
+                        get: { prompt.categoryID },
+                        set: { store.updateSelectedPromptCategory($0) }
+                    )) {
+                        ForEach(store.categories) { category in
+                            Text(category.name).tag(category.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 220)
+
                     MultilineInput(title: store.text(.summary), text: $summary, minHeight: 84)
                         .frame(maxWidth: 560)
                     
@@ -479,61 +476,6 @@ private struct PromptWorkspace: View {
         }
     }
 
-    private var categoryEditor: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(store.text(.customTypes))
-                .font(.title3.weight(.semibold))
-
-            if let prompt = store.selectedPrompt {
-                Picker(store.text(.currentPromptType), selection: Binding(
-                    get: { prompt.categoryID },
-                    set: { store.updateSelectedPromptCategory($0) }
-                )) {
-                    ForEach(store.categories) { category in
-                        Text(category.name).tag(category.id)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-
-            HStack {
-                TextField(store.text(.typeName), text: $draftCategoryName)
-                ColorPicker(
-                    store.text(.color),
-                    selection: Binding(
-                        get: { Color(hex: draftCategoryColor) },
-                        set: { draftCategoryColor = $0.hexString ?? draftCategoryColor }
-                    ),
-                    supportsOpacity: false
-                )
-                .labelsHidden()
-                Button(store.text(.addType)) {
-                    store.addCategory(name: draftCategoryName, colorHex: draftCategoryColor)
-                    draftCategoryName = ""
-                    draftCategoryColor = "F97316"
-                }
-                .buttonStyle(.bordered)
-                .disabled(draftCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(store.categories) { category in
-                    categoryRow(for: category)
-                }
-            }
-        }
-        .padding(20)
-        .background(
-            AppTheme.panelCard
-        )
-        .onAppear {
-            syncCategoryDrafts()
-        }
-        .onChange(of: store.categories) { _, _ in
-            syncCategoryDrafts()
-        }
-    }
-
     private func apply(version: PromptVersion) {
         summary = store.selectedPrompt?.summary ?? ""
         branchName = version.branchName
@@ -592,6 +534,108 @@ private struct PromptWorkspace: View {
         newPromptCategoryID = store.categories.first?.id
     }
 
+}
+
+private struct EditableCategory: Equatable {
+    var name: String
+    var colorHex: String
+}
+
+private struct SettingsView: View {
+    @EnvironmentObject private var store: PromptStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var draftCategoryName = ""
+    @State private var draftCategoryColor = "F97316"
+    @State private var categoryDrafts: [UUID: EditableCategory] = [:]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text(store.text(.settings))
+                    .font(.title2.weight(.semibold))
+                Spacer()
+                Button(store.text(.cancel)) {
+                    dismiss()
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text(store.text(.language))
+                    .font(.headline)
+                Picker(store.text(.language), selection: Binding(
+                    get: { store.appLanguage },
+                    set: { store.appLanguage = $0 }
+                )) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Label(language.title, systemImage: language.symbolName)
+                            .tag(language)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+            .padding(16)
+            .background(AppTheme.inputCard)
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text(store.text(.theme))
+                    .font(.headline)
+                Picker(store.text(.theme), selection: Binding(
+                    get: { store.appThemeMode },
+                    set: { store.appThemeMode = $0 }
+                )) {
+                    ForEach(AppThemeMode.allCases) { mode in
+                        Label(mode.title(for: store.appLanguage), systemImage: mode.symbolName)
+                            .tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+            .padding(16)
+            .background(AppTheme.inputCard)
+
+            Text(store.text(.customTypes))
+                .font(.headline)
+
+            HStack {
+                TextField(store.text(.typeName), text: $draftCategoryName)
+                ColorPicker(
+                    store.text(.color),
+                    selection: Binding(
+                        get: { Color(hex: draftCategoryColor) },
+                        set: { draftCategoryColor = $0.hexString ?? draftCategoryColor }
+                    ),
+                    supportsOpacity: false
+                )
+                .labelsHidden()
+
+                Button(store.text(.addType)) {
+                    store.addCategory(name: draftCategoryName, colorHex: draftCategoryColor)
+                    draftCategoryName = ""
+                    draftCategoryColor = "F97316"
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(draftCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(store.categories) { category in
+                        categoryRow(for: category)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(24)
+        .background(AppTheme.panelBackground)
+        .onAppear {
+            syncCategoryDrafts()
+        }
+        .onChange(of: store.categories) { _, _ in
+            syncCategoryDrafts()
+        }
+    }
+
     private func categoryRow(for category: PromptCategory) -> some View {
         let draft = Binding(
             get: { categoryDrafts[category.id] ?? EditableCategory(name: category.name, colorHex: category.colorHex) },
@@ -642,9 +686,7 @@ private struct PromptWorkspace: View {
             }
         }
         .padding(12)
-        .background(
-            AppTheme.inputCard
-        )
+        .background(AppTheme.inputCard)
     }
 
     private func syncCategoryDrafts() {
@@ -654,11 +696,6 @@ private struct PromptWorkspace: View {
         }
         categoryDrafts = nextDrafts
     }
-}
-
-private struct EditableCategory: Equatable {
-    var name: String
-    var colorHex: String
 }
 
 private struct VersionInspectorPanel: View {

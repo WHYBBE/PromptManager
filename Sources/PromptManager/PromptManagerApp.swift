@@ -16,6 +16,14 @@ struct PromptManager: App {
                 .background(WindowAppearanceSync(mode: store.appThemeMode))
         }
         .windowResizability(.contentMinSize)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button(store.text(.settings)) {
+                    store.isSettingsPresented = true
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+        }
     }
 }
 

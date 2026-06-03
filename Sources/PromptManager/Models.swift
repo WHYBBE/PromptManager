@@ -35,7 +35,7 @@ enum AppLanguage: String, Codable, CaseIterable, Identifiable {
 }
 
 enum L10nKey {
-    case appName, export, exportSelected, importAction, newPrompt, deletePrompt, importDataTitle, replaceData, mergeData, cancel, importDataMessage, importFailed, exportFailed, ok, evolve, fork, deleteCurrentVersion, saveSummary, summary, versionContent, branchName, versionTitle, promptContent, effectDescription, notes, saveCurrentVersion, switchCurrentVersion, customTypes, currentPromptType, typeName, color, addType, save, delete, inUse, createPromptTitle, createPromptHint, name, type, createPromptAction, noVisualizationData, versionGraph, historyVersions, currentInUse, language, theme, system, light, dark, moveUp, moveDown
+    case appName, settings, export, exportSelected, importAction, newPrompt, deletePrompt, importDataTitle, replaceData, mergeData, cancel, importDataMessage, importFailed, exportFailed, ok, evolve, fork, deleteCurrentVersion, saveSummary, summary, versionContent, branchName, versionTitle, promptContent, effectDescription, notes, saveCurrentVersion, switchCurrentVersion, customTypes, currentPromptType, typeName, color, addType, save, delete, inUse, createPromptTitle, createPromptHint, name, type, createPromptAction, noVisualizationData, versionGraph, historyVersions, currentInUse, language, theme, system, light, dark, moveUp, moveDown
 }
 
 enum AppThemeMode: String, Codable, CaseIterable, Identifiable {
@@ -193,6 +193,7 @@ final class PromptStore: ObservableObject {
     @Published var prompts: [PromptDocument]
     @Published var selectedPromptID: UUID?
     @Published var selectedVersionID: UUID?
+    @Published var isSettingsPresented = false
     @AppStorage("appLanguage") var appLanguageRawValue: String = AppLanguage.chinese.rawValue
     @AppStorage("appThemeMode") var appThemeModeRawValue: String = AppThemeMode.system.rawValue
 
@@ -234,17 +235,25 @@ final class PromptStore: ObservableObject {
 
     var appThemeMode: AppThemeMode {
         get { AppThemeMode(rawValue: appThemeModeRawValue) ?? .system }
-        set { appThemeModeRawValue = newValue.rawValue }
+        set {
+            objectWillChange.send()
+            appThemeModeRawValue = newValue.rawValue
+        }
     }
 
     var appLanguage: AppLanguage {
         get { AppLanguage(rawValue: appLanguageRawValue) ?? .chinese }
-        set { appLanguageRawValue = newValue.rawValue }
+        set {
+            objectWillChange.send()
+            appLanguageRawValue = newValue.rawValue
+        }
     }
 
     func text(_ key: L10nKey) -> String {
         switch (appLanguage, key) {
         case (_, .appName): return "Prompt Manager"
+        case (.english, .settings): return "Settings"
+        case (.chinese, .settings): return "设置"
         case (.english, .export): return "Export"
         case (.chinese, .export): return "导出"
         case (.english, .exportSelected): return "Export Selected"
