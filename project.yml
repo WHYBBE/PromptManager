@@ -15,7 +15,7 @@ targets:
       - path: PromptManager
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.tom.PromptManager
+        PRODUCT_BUNDLE_IDENTIFIER: me.whynbnb.PromptManager
         PRODUCT_NAME: Prompt Manager
         SWIFT_VERSION: 5.9
         GENERATE_INFOPLIST_FILE: NO
