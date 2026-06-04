@@ -17,6 +17,12 @@ struct PromptManager: App {
         }
         .windowResizability(.contentMinSize)
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button(store.text(.aboutApp)) {
+                    showAboutPanel()
+                }
+            }
+
             CommandGroup(replacing: .appSettings) {
                 Button(store.text(.settings)) {
                     store.isSettingsPresented = true
@@ -24,6 +30,44 @@ struct PromptManager: App {
                 .keyboardShortcut(",", modifiers: .command)
             }
         }
+    }
+
+    private func showAboutPanel() {
+        let isEnglish = store.appLanguage == .english
+        let repositoryURLString = "https://github.com/WHYBBE/PromptManager"
+        let credits = isEnglish
+            ? "Developer: WHYBBE\nRepository: \(repositoryURLString)\nLicense: MIT License"
+            : "开发者：WHYBBE\n仓库：\(repositoryURLString)\n许可证：MIT License"
+
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+        paragraphStyle.lineSpacing = 3
+
+        let attributedCredits = NSMutableAttributedString(
+            string: credits,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+                .foregroundColor: NSColor.secondaryLabelColor,
+                .paragraphStyle: paragraphStyle
+            ]
+        )
+        let repositoryRange = (credits as NSString).range(of: repositoryURLString)
+        if repositoryRange.location != NSNotFound,
+           let repositoryURL = URL(string: repositoryURLString) {
+            attributedCredits.addAttributes(
+                [
+                    .link: repositoryURL,
+                    .foregroundColor: NSColor.linkColor,
+                    .underlineStyle: NSUnderlineStyle.single.rawValue
+                ],
+                range: repositoryRange
+            )
+        }
+
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: store.text(.appName),
+            .credits: attributedCredits
+        ])
     }
 }
 
