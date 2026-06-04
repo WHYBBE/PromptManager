@@ -96,13 +96,7 @@ Imported prompts are remapped to the merged type IDs to avoid duplicate types wh
 
 ## App Icon
 
-The app icon is currently generated from the SF Symbol:
-
-```text
-info.circle.text.page.fill
-```
-
-The generated icon assets live in:
+The app uses fixed app icon assets from:
 
 ```text
 PromptManager/Assets.xcassets/AppIcon.appiconset/

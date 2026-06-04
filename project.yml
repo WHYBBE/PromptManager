@@ -13,8 +13,6 @@ targets:
     sources:
       - path: Sources/PromptManager
       - path: PromptManager
-        excludes:
-          - Assets.xcassets/AppIcon.appiconset/README.md
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tom.PromptManager

@@ -96,13 +96,7 @@ Prompt Manager 会将本地数据保存到 Application Support：
 
 ## 应用图标
 
-当前应用图标基于以下 SF Symbol 生成：
-
-```text
-info.circle.text.page.fill
-```
-
-图标资源位于：
+应用使用固定图标资源，位置为：
 
 ```text
 PromptManager/Assets.xcassets/AppIcon.appiconset/
