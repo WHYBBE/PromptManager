@@ -2,14 +2,22 @@
 
 [中文说明 / Chinese Version](./README.zh-CN.md)
 
-Prompt Manager is a macOS SwiftUI app for organizing prompts with custom types, version history, branching, visual version relationships, import/export, theme switching, and Chinese/English UI support.
+Prompt Manager is a macOS SwiftUI app for organizing prompts with custom types, version history, branching, visual version relationships, search, grouping, import/export, theme switching, and Chinese/English UI support.
 
-Built with OpenCode / GPT-5.4 vibe coding.
+> Built with OpenCode / GPT-5.4 and GPT-5.5 vibe coding.
+
+## Screenshot
+
+![Prompt Manager screenshot](./docs/pic-en.png)
 
 ## Features
 
 - Create prompt entries with a name, type, and summary first, then refine prompt content later
 - Define custom prompt types and assign colors with a native color picker
+- Search prompts by name, summary, type, version title, version content, and effect description
+- Sort the sidebar by time, custom order, or alphabetically
+- Group sidebar prompts by type
+- Reorder prompts manually in custom sort mode
 - Manage prompt versions with:
   - evolution from the current version
   - branching from any version
@@ -18,10 +26,14 @@ Built with OpenCode / GPT-5.4 vibe coding.
 - Visualize version relationships with a graph view and smooth connection curves
 - Keep version history and graph side by side in the right panel
 - Persist data locally
+- Manage import, export, clear data, language, theme, and custom types from the settings panel
 - Import and export the full data set as JSON
+- Export a single prompt from the prompt context menu or workspace more-actions menu
 - Merge imported data into the current library or replace it entirely
+- Clear all data with a destructive confirmation step
 - Switch between system, light, and dark appearance modes
 - Switch UI language between Chinese and English
+- Show app metadata from the standard macOS About panel, including developer, repository, and license
 
 ## Project Structure
 
@@ -30,6 +42,20 @@ Built with OpenCode / GPT-5.4 vibe coding.
 - `PromptManager/Assets.xcassets`: app icons and app assets
 - `PromptManager/Info.plist`: app bundle metadata
 - `project.yml`: XcodeGen project definition
+
+## App Metadata
+
+- Bundle identifier: `me.whynbnb.PromptManager`
+- Developer: `WHYBBE`
+- Repository: <https://github.com/WHYBBE/PromptManager>
+- License: MIT License
+
+`PromptManager/Info.plist` reads version values from Xcode build settings:
+
+- `MARKETING_VERSION`
+- `CURRENT_PROJECT_VERSION`
+
+Keep `project.yml` and `PromptManager.xcodeproj/project.pbxproj` in sync when changing app metadata.
 
 ## Run The App
 
@@ -77,10 +103,23 @@ The app persists:
 - selected prompt and selected version
 - UI language setting
 - appearance setting
+- sidebar sort mode
+- sidebar type grouping setting
 
 ## Import And Export
 
 The app supports full-library JSON import and export.
+
+Data actions live in the settings panel:
+
+- Export all data
+- Import data
+- Clear all data
+
+Single-prompt export is available from:
+
+- the prompt context menu in the sidebar
+- the workspace more-actions menu
 
 Import offers two modes:
 
