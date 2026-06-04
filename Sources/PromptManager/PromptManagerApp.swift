@@ -58,11 +58,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.applicationIconImage = applicationIcon
         NSApp.setActivationPolicy(.regular)
+        focusApplicationWindow()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        focusApplicationWindow()
+        return true
+    }
+
+    private func focusApplicationWindow(remainingAttempts: Int = 8) {
+        NSRunningApplication.current.activate(options: [.activateAllWindows])
         NSApp.activate(ignoringOtherApps: true)
 
-        DispatchQueue.main.async {
-            NSApp.windows.first?.makeKeyAndOrderFront(nil)
-            NSApp.mainWindow?.makeKeyAndOrderFront(nil)
+        if let window = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.canBecomeKey }) ?? NSApp.windows.first {
+            window.orderFrontRegardless()
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        guard remainingAttempts > 0 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+            self?.focusApplicationWindow(remainingAttempts: remainingAttempts - 1)
         }
     }
 
