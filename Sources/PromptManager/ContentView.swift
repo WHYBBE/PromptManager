@@ -516,71 +516,106 @@ private struct PromptWorkspace: View {
     }
 
     private func header(prompt: PromptDocument, version: PromptVersion) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack() {
-                        Text(prompt.name)
-                            .font(.system(size: 30, weight: .bold))
-                        Spacer()
-                        HStack(spacing: 10) {
-                            Button(store.text(.evolve)) {
-                                store.evolveSelectedVersion()
-                            }
-                            .buttonStyle(.borderedProminent)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 16) {
+                Text(prompt.name)
+                    .font(.system(size: 30, weight: .bold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
-                            Button(store.text(.fork)) {
-                                store.forkSelectedVersion()
-                            }
-                            .buttonStyle(.bordered)
+                Spacer(minLength: 12)
 
-                            Menu {
-                                Button(store.text(.exportSelected)) {
-                                    exportPrompt(prompt)
-                                }
-
-                                Button(store.text(.deletePrompt), role: .destructive) {
-                                    store.deletePrompt(prompt.id)
-                                }
-                            } label: {
-                                Label(store.text(.moreActions), systemImage: "ellipsis.circle")
-                            }
-                            .menuStyle(.borderlessButton)
-                            .fixedSize()
-                        }
+                HStack(spacing: 10) {
+                    Button(store.text(.evolve)) {
+                        store.evolveSelectedVersion()
                     }
+                    .buttonStyle(.borderedProminent)
 
-                    HStack(spacing: 12) {
-                        Label(version.branchName, systemImage: "point.3.connected.trianglepath.dotted")
-                        Label(version.title, systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
-                        Text(version.createdAt.formatted(date: .abbreviated, time: .shortened))
+                    Button(store.text(.fork)) {
+                        store.forkSelectedVersion()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Menu {
+                        Button(store.text(.exportSelected)) {
+                            exportPrompt(prompt)
+                        }
+
+                        Button(store.text(.deletePrompt), role: .destructive) {
+                            store.deletePrompt(prompt.id)
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
                             .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
                     }
-                    .font(.subheadline)
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                    .help(store.text(.moreActions))
+                }
+                .fixedSize(horizontal: true, vertical: false)
+            }
 
-                    Picker(store.text(.currentPromptType), selection: Binding(
-                        get: { prompt.categoryID },
-                        set: { store.updateSelectedPromptCategory($0) }
-                    )) {
-                        ForEach(store.categories) { category in
-                            Text(category.name).tag(category.id)
-                        }
+            HStack(spacing: 8) {
+                metadataPill(version.branchName, systemImage: "point.3.connected.trianglepath.dotted")
+                metadataPill(version.title, systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                metadataPill(version.createdAt.formatted(date: .abbreviated, time: .shortened), systemImage: "calendar")
+            }
+
+            Divider()
+
+            HStack(alignment: .center, spacing: 12) {
+                Text(store.text(.currentPromptType))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 110, alignment: .leading)
+
+                Picker("", selection: Binding(
+                    get: { prompt.categoryID },
+                    set: { store.updateSelectedPromptCategory($0) }
+                )) {
+                    ForEach(store.categories) { category in
+                        Text(category.name).tag(category.id)
                     }
-                    .pickerStyle(.menu)
-                    .frame(maxWidth: 220)
+                }
+                .pickerStyle(.menu)
+                .frame(width: 180)
 
-                    MultilineInput(title: store.text(.summary), text: $summary, minHeight: 84)
-                        .frame(maxWidth: 560)
-                    
+                Spacer()
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(store.text(.summary))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
                     Button(store.text(.saveSummary)) {
                         store.updateSelectedPromptSummary(summary)
                     }
                     .buttonStyle(.bordered)
                 }
-                Spacer()
-                
+
+                PlainMultilineTextView(text: $summary)
+                    .padding(10)
+                    .frame(minHeight: 120)
+                    .background(AppTheme.inputCard)
             }
         }
+        .padding(18)
+        .background(AppTheme.panelCard)
+    }
+
+    private func metadataPill(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Color.primary.opacity(0.05), in: Capsule())
     }
 
     private func versionEditor(version: PromptVersion) -> some View {
